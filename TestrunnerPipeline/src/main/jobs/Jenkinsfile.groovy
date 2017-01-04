@@ -438,22 +438,24 @@ def getAsArtefact(StaticAnalysisType type) {
 
 def getCheckstyle(StaticAnalysisType type) {
     println "Collecting " + type.name + "..."
-    step([$class: 'CheckStylePublisher', defaultEncoding: '', healthy: '', unHealthy: '',
+    //hier sind aktuell nur Grenzwerte fuer neue Warnungen aktiviert (also sowas aehnliches wie Ratcheting)
+    step([$class: 'CheckStylePublisher', defaultEncoding: 'UTF-8', healthy: '', unHealthy: '',
                  pattern: type.pattern,
                  unstableNewAll: '0', unstableNewHigh: '0', unstableNewLow: '0', unstableNewNormal: '0',
-                 unstableTotalAll: '0', unstableTotalHigh: '0', unstableTotalLow: '0', unstableTotalNormal: '0',
-                 usePreviousBuildAsReference: true, useStableBuildAsReference: true])
+                 useDeltaValues: true, canComputeNew: false,
+                 usePreviousBuildAsReference: false, useStableBuildAsReference: false])
     archiveArtifacts allowEmptyArchive: true, artifacts: type.pattern, defaultExcludes: false
     
 }
 
 def getFindbugs(StaticAnalysisType type) {
     println "Collecting " + type.name + "..."
-    step([$class: 'FindBugsPublisher', defaultEncoding: '', excludePattern: '', healthy: '', includePattern: '', unHealthy: '',
+    //hier sind aktuell nur Grenzwerte fuer neue Warnungen aktiviert (also sowas aehnliches wie Ratcheting)
+    step([$class: 'FindBugsPublisher', defaultEncoding: 'UTF-8', excludePattern: '', healthy: '', includePattern: '', unHealthy: '',
                  pattern: type.pattern,
                  unstableNewAll: '0', unstableNewHigh: '0', unstableNewLow: '0', unstableNewNormal: '0',
-                 unstableTotalAll: '0', unstableTotalHigh: '0', unstableTotalLow: '0', unstableTotalNormal: '0',
-                 usePreviousBuildAsReference: true, useStableBuildAsReference: true])
+                 useDeltaValues: true, canComputeNew: false,
+                 usePreviousBuildAsReference: false, useStableBuildAsReference: false])
     archiveArtifacts allowEmptyArchive: true, artifacts: type.pattern, defaultExcludes: false
 }
 
