@@ -130,7 +130,7 @@ node(NodeZuordnung) {
                     },
                     'Get Classycle Results': {
                         if (WithStaticAnalysis.toBoolean()) {
-                            getUnit(StaticAnalysisType.CLASSYCLE)
+                            getAsArtefact(StaticAnalysisType.CLASSYCLE)
                         }
                     }
             )
