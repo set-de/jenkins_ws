@@ -94,8 +94,11 @@ node(NodeZuordnung) {
     
                         if (WithBuild.toBoolean()) {
                             tasks.add('buildAllComponents')
-                            tasks.add('-x')
-                            tasks.add('compileGwt')
+                            tasks.add('-x compileGwt')
+                        }
+
+                        if (WithGenerateManual.toBoolean()) {
+                            tasks.add('generateManual')
                         }
     
                         callGradle(0, tasks.join(' '))
@@ -140,7 +143,7 @@ node(NodeZuordnung) {
 
             parallel(
                     'generate manual': {
-                        //callGradle(0, 'generateManual')
+                        callGradle(0, 'generateManual')
                     }
             )
         }
@@ -267,8 +270,8 @@ void nodeSetUp(String testRunnerUser) {
     }
 
     // Speicherverbrauch etwas minimieren im Gegensatz zu lokalen Builds
-    env.GRADLE_OPTS = '-Xmx2048m'
-    env.JAVA_OPTS = '-Xmx8196m'
+    env.GRADLE_OPTS = '-Xmx1024m'
+    env.JAVA_OPTS = '-Xmx1024m'
 
     // Pfade relativ zum Workspace unter Linux
     String[] pathsLinux = [
@@ -388,7 +391,7 @@ String getSvnUrl(String path) {
 void callGradle(int workers, String tasks) {
     dir('Workspace/rootProject') {
         def max_workers = workers > 0 ? "--parallel --max-workers=${workers}" : ''
-        def jvm_args = '-server -Xmx4G -Xms1G -XX:ReservedCodeCacheSize=1G -XX:+DisableExplicitGC -XX:MaxPermSize=1G -XX:PermSize=256m -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:+CMSPermGenSweepingEnabled'
+        def jvm_args = '-server -Xmx1G -Xms1G -XX:ReservedCodeCacheSize=1G -XX:+DisableExplicitGC -XX:MaxPermSize=1G -XX:PermSize=256m -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:+CMSPermGenSweepingEnabled'
 
         run "gradle --no-daemon -s -PsetBuildDate=${env.BUILD_DATE} -Dorg.gradle.jvmargs=\"${jvm_args}\" ${max_workers} $tasks"
     }
