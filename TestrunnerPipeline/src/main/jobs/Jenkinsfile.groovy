@@ -288,8 +288,10 @@ void nodeSetUp(String testRunnerUser) {
     ]
 
     // relative Pfade ergänzen
-    for (String p : isUnix() ? pathsLinux : pathsWindows) {
-        println "adding path: $p"
+    String[] relevantPaths = isUnix() ? pathsLinux : pathsWindows
+    for (int i = 0; i < relevantPaths.length; i++) {
+        String p = relevantPaths[i]
+        println "adding path: " + p
         env.PATH = env.WORKSPACE + fileSep() + p + pathSep() + env.PATH
     }
 
@@ -300,7 +302,8 @@ void nodeSetUp(String testRunnerUser) {
 
     // Lib-Path unter Linux ergänzen
     if (isUnix()) {
-        for (String p : libPathsLinux) {
+        for (int i = 0; i < libPathsLinux.length; i++) {
+            String p = libPathsLinux[i]
             println "adding lib path: $p"
             env.LD_LIBRARY_PATH = env.WORKSPACE + fileSep() + p +
                     (env.LD_LIBARY_PATH ? (pathSep() + env.LD_LIBRARY_PATH) : '')
@@ -344,8 +347,9 @@ void initSvnInfo(String path) {
     try {
         run "svn info ${path} > ${tmpFileName}"
         def info = readFile(tmpFileName)
-        for (String l : info.split('\n')) {
-            String[] line = l.split(':')
+        String[] parts = info.split('\n')
+        for (int i = 0; i < parts.length; i++) {
+            String[] line = parts[i].split(':')
             if (line.size() >= 2) {
                 def key = line[0].trim().toUpperCase()
                 def value = Arrays.copyOfRange(line as String[], 1, line.size()).join(':').trim()
