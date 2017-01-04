@@ -464,6 +464,8 @@ def getFindbugs(StaticAnalysisType type) {
 
 enum StaticAnalysisType {
 
+    //TODO das Scannen des kompletten Workspaces mit ** ist inperformant. Wenn wir die statischen Analyse
+    //  wieder auf globale Analyse umgestellt haben dran denken das auszubauen
     FINDBUGS('Findbugs', 'Workspace/**/build/reports/findbugs/*.xml'),
     CHECKSTYLE('Checkstyle', 'Workspace/**/reports/checkstyle*.xml,Workspace/**/reports/xsCheckstyle*.xml,Workspace/**/reports/xsCheckstyle/*.xml'),
 
