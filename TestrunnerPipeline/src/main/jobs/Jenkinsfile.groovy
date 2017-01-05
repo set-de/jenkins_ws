@@ -123,12 +123,12 @@ node(NodeZuordnung) {
                     },
                     'Get Findbugs Results': {
                         if (WithStaticAnalysis.toBoolean()) {
-                            getFindbugs(StaticAnalysisType.FINDBUGS)
+                            getFindbugs(StaticAnalysisType.FINDBUGS, ResetFindbugsLimits.toBoolean())
                         }
                     },
                     'Get Checkstyle Results': {
                         if (WithStaticAnalysis.toBoolean()) {
-                            getCheckstyle(StaticAnalysisType.CHECKSTYLE)
+                            getCheckstyle(StaticAnalysisType.CHECKSTYLE, ResetCheckstyleLimits.toBoolean())
                         }
                     },
                     'Get Classycle Results': {
@@ -444,25 +444,25 @@ def getAsArtefact(StaticAnalysisType type) {
     archiveArtifacts allowEmptyArchive: true, artifacts: type.pattern, defaultExcludes: false
 }
 
-def getCheckstyle(StaticAnalysisType type) {
+def getCheckstyle(StaticAnalysisType type, boolean resetLimits) {
     println "Collecting " + type.name + "..."
     //hier sind aktuell nur Grenzwerte fuer neue Warnungen aktiviert (also sowas aehnliches wie Ratcheting)
     step([$class: 'CheckStylePublisher', defaultEncoding: 'UTF-8', healthy: '', unHealthy: '',
                  pattern: type.pattern,
                  unstableNewAll: '0', unstableNewHigh: '0', unstableNewLow: '0', unstableNewNormal: '0',
-                 useDeltaValues: true, canComputeNew: false,
+                 useDeltaValues: true, canComputeNew: !resetLimits,
                  usePreviousBuildAsReference: false, useStableBuildAsReference: false])
     archiveArtifacts allowEmptyArchive: true, artifacts: type.pattern, defaultExcludes: false
     
 }
 
-def getFindbugs(StaticAnalysisType type) {
+def getFindbugs(StaticAnalysisType type, boolean resetLimits) {
     println "Collecting " + type.name + "..."
     //hier sind aktuell nur Grenzwerte fuer neue Warnungen aktiviert (also sowas aehnliches wie Ratcheting)
     step([$class: 'FindBugsPublisher', defaultEncoding: 'UTF-8', excludePattern: '', healthy: '', includePattern: '', unHealthy: '',
                  pattern: type.pattern,
                  unstableNewAll: '0', unstableNewHigh: '0', unstableNewLow: '0', unstableNewNormal: '0',
-                 useDeltaValues: true, canComputeNew: false,
+                 useDeltaValues: true, canComputeNew: !resetLimits,
                  usePreviousBuildAsReference: false, useStableBuildAsReference: false])
     archiveArtifacts allowEmptyArchive: true, artifacts: type.pattern, defaultExcludes: false
 }
