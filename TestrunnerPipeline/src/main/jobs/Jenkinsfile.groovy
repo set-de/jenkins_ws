@@ -107,7 +107,7 @@ node(NodeZuordnung) {
 				parallel(
 
 					'Get Unit Test Results': {
-						if (WithBuild.toBoolean()) {
+						if (WithStaticAnalysis.toBoolean()) {
 							getUnit(StaticAnalysisType.JUNIT)
 						}
 					},
