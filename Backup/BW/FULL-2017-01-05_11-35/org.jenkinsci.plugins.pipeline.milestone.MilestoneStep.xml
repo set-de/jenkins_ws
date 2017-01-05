@@ -1,0 +1,43 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<org.jenkinsci.plugins.pipeline.milestone.MilestoneStep_-DescriptorImpl plugin="pipeline-milestone-step@1.3">
+  <executionType>org.jenkinsci.plugins.pipeline.milestone.MilestoneStepExecution</executionType>
+  <milestonesByOrdinalByJob class="tree-map">
+    <entry>
+      <string>CheckCommitPipeline</string>
+      <tree-map>
+        <entry>
+          <int>0</int>
+          <org.jenkinsci.plugins.pipeline.milestone.Milestone>
+            <ordinal>0</ordinal>
+            <inSight class="sorted-set"/>
+            <lastBuild>30</lastBuild>
+          </org.jenkinsci.plugins.pipeline.milestone.Milestone>
+        </entry>
+        <entry>
+          <int>1</int>
+          <org.jenkinsci.plugins.pipeline.milestone.Milestone>
+            <ordinal>1</ordinal>
+            <inSight class="sorted-set"/>
+            <lastBuild>30</lastBuild>
+          </org.jenkinsci.plugins.pipeline.milestone.Milestone>
+        </entry>
+        <entry>
+          <int>2</int>
+          <org.jenkinsci.plugins.pipeline.milestone.Milestone>
+            <ordinal>2</ordinal>
+            <inSight class="sorted-set"/>
+            <lastBuild>30</lastBuild>
+          </org.jenkinsci.plugins.pipeline.milestone.Milestone>
+        </entry>
+        <entry>
+          <int>3</int>
+          <org.jenkinsci.plugins.pipeline.milestone.Milestone>
+            <ordinal>3</ordinal>
+            <inSight class="sorted-set"/>
+            <lastBuild>30</lastBuild>
+          </org.jenkinsci.plugins.pipeline.milestone.Milestone>
+        </entry>
+      </tree-map>
+    </entry>
+  </milestonesByOrdinalByJob>
+</org.jenkinsci.plugins.pipeline.milestone.MilestoneStep_-DescriptorImpl>
