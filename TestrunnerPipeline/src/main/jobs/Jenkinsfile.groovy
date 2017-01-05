@@ -175,7 +175,7 @@ node(NodeZuordnung) {
                     }
                 },
                 'Systemtests local' : {
-                    if (SystemtestLocal.toBoolean()) {
+                    if (WithSystemtestLocal.toBoolean()) {
                         step([$class               : 'TestrunnerBuilder',
                               applicationProperties: "${TESTRUNNER_APPLICATION}",
                               assertionsEnabled    : true,
@@ -195,7 +195,7 @@ node(NodeZuordnung) {
                     }
                 },
                 'Systemtests Plugins' : {
-                    if (SystemtestPlugins.toBoolean()) {
+                    if (WithSystemtestPlugins.toBoolean()) {
                         step([$class               : 'TestrunnerBuilder',
                               applicationProperties: "${TESTRUNNER_APPLICATION}",
                               assertionsEnabled    : true,
@@ -203,7 +203,7 @@ node(NodeZuordnung) {
                               instrumented         : true,
                               javaCommand          : "${env.JAVA_BINARY}",
                               reportPath           : "${env.WORKSPACE}/Workspace/report/",
-                              statusServerPorts    : '1234',
+                              statusServerPorts    : '1235',
                               testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle-Plugins",
                               testrunnerJar        : 'Testtools.jar',
                               testrunnerMainClass  : 'de.setsoftware.posy.testrunner.TestrunnerMain',
@@ -215,7 +215,7 @@ node(NodeZuordnung) {
                     }
                 },
                 'Systemtests Replikation' : {
-                    if (SystemtestReplikation.toBoolean()) {
+                    if (WithSystemtestReplikation.toBoolean()) {
                         step([$class               : 'TestrunnerBuilder',
                               applicationProperties: "${TESTRUNNER_APPLICATION}",
                               assertionsEnabled    : true,
@@ -223,7 +223,7 @@ node(NodeZuordnung) {
                               instrumented         : true,
                               javaCommand          : "${env.JAVA_BINARY}",
                               reportPath           : "${env.WORKSPACE}/Workspace/report/",
-                              statusServerPorts    : '1234',
+                              statusServerPorts    : '1236',
                               testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle-Replikation",
                               testrunnerJar        : 'Testtools.jar',
                               testrunnerMainClass  : 'de.setsoftware.posy.testrunner.TestrunnerMain',
