@@ -138,7 +138,12 @@ node(NodeZuordnung) {
                     },
                     'Get Task Scanner Results': {
                         if (WithStaticAnalysis.toBoolean()) {
-                            getTodos()
+                            getTodos(StaticAnalysisType.TODOS)
+                        }
+                    },
+                    'Get Compiler Warnings': {
+                        if (WithStaticAnalysis.toBoolean()) {
+                            getCompilerWarnings(StaticAnalysisType.WARNINGS)
                         }
                     }
             )
@@ -467,8 +472,8 @@ def getFindbugs(StaticAnalysisType type) {
     archiveArtifacts allowEmptyArchive: true, artifacts: type.pattern, defaultExcludes: false
 }
 
-def getTodos() {
-    println "Scanning for TODOS, FIXMEs etc."
+def getTodos(StaticAnalysisType type) {
+    println "Collecting " + type.name + "..."
     step([$class: 'TasksPublisher', high: 'FIXME',
           normal: 'TODO PSY, TODO Auto-generated, TODO implement, TODO 7, TODO 8, TODO 8.2, TODO 9, TODO 10,'
             + 'TODO 10.6, TODO 11, TODO 12, TODO 13, TODO 14, TODO 15, TODO 16, TODO 17, TODO 18, TODO 19, '
@@ -485,7 +490,13 @@ def getTodos() {
             + 'TODO 118, TODO 119, TODO 120, TODO 121, TODO 122, TODO 123, TODO 124, TODO 125, TODO 126, '
             + 'TODO 127, TODO 128, TODO 129, TODO 130, TODO 131, TODO 132, TODO 133, TODO 134, TODO 135, '
             + 'TODO 136, TODO 137, TODO 138, TODO 139, TODO 140, TODO 141, TODO 142',
-          low: '@deprecated', ignoreCase: true, asRegexp: false, excludePattern:'', pattern:'**/src/**/*.java'])
+          low: '@deprecated', ignoreCase: true, asRegexp: false, excludePattern:'', pattern: type.pattern])
+    // Kein Archivieren der Dateien, die das Pattern matchen, da es sich hier um Sourcedateien handelt.
+}
+def getCompilerWarnings(StaticAnalysisType type) {
+    println "Collecting " + type.name + "..."
+    step([$class: 'WarningsPublisher', consoleParsers: [[parserName: 'Java Compiler (javac)']]])
+    // Kein Archivieren, da die Konsole geparst wird.
 }
 
 enum StaticAnalysisType {
@@ -498,7 +509,10 @@ enum StaticAnalysisType {
     JUNIT('Unit-Test', 'Workspace/**/build/test-results/**/*.xml'),
 
     CLASSYCLE('Classycle', 'Workspace/**/build/reports/classycle/**'),
-    CODENARC('CodeNarc', 'Workspace/**/build/reports/codeNarc/*.xml')
+    CODENARC('CodeNarc', 'Workspace/**/build/reports/codeNarc/*.xml'),
+
+    TODOS('TODOS', 'Workspace/**/src/**/*.java'),
+    WARNINGS('Warnings','')
 
     String name
     String pattern
