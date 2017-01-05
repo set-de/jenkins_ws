@@ -34,7 +34,7 @@ node(NodeZuordnung) {
             parallel(
                 'SVN-Checkout': {
                     // Wenn angefordert erstmal ein cleanup auf dem SVN machen
-                    if (SVNCleanup.toBoolean()) {
+                    if (WithSvnCleanup.toBoolean()) {
                         run 'svn cleanup Workspace'
                         run 'svn cleanup program'
                     } else {
@@ -42,7 +42,7 @@ node(NodeZuordnung) {
                     }
 
                     // Dann aus dem SVN Workspace und program auschecken
-                    if (Checkout.toBoolean()) {
+                    if (WithCheckout.toBoolean()) {
                         checkout poll: true, scm: [
                             $class          : 'SubversionSCM',
                             locations       : [
@@ -87,7 +87,7 @@ node(NodeZuordnung) {
 
                     if (WithBuild.toBoolean()) {
                         tasks.add('buildAllComponents')
-                        if (WithoutGUI.toBoolean()) {
+                        if (!WithGwtCompile.toBoolean()) {
                             tasks.add('-x compileGwt')
                         }
                     }
@@ -152,16 +152,11 @@ node(NodeZuordnung) {
                         stash includes: 'Workspace/POSY-Online-Hilfe/', name: 'flare-input'
 
                         node('windows && flare') {
-                            if (WithCompileFlare.toBoolean()) {
-                                deleteDir()
-                                unstash 'flare-input'
-                                dir('Workspace/POSY-Online-Hilfe') {
-                                    bat 'buildFlare.cmd'
-                                }
-                            } else {
-                                println "Skipping flare compile"
-                            }
-
+							deleteDir()
+							unstash 'flare-input'
+							dir('Workspace/POSY-Online-Hilfe') {
+								bat 'buildFlare.cmd'
+							}
                             println "Stashing flare-output"
                             stash includes: 'Workspace/POSY-Online-Hilfe/POSY-MailManagement/Output/jenkins/', excludes: '**/Temporary/**', name: 'flare-output'
                             println "Archiving Flare logs"
