@@ -19,6 +19,17 @@
           <description>HEAD oder Revisionsnummer ohne &quot;@&quot;</description>
           <defaultValue>HEAD</defaultValue>
         </hudson.model.StringParameterDefinition>
+        <hudson.scm.listtagsparameter.ListSubversionTagsParameterDefinition plugin="subversion@2.7.1">
+          <name>Branch</name>
+          <description>Select a Subversion entry</description>
+          <tagsDir>https://svn.intranet.set.de/svn/POSY-Redesign</tagsDir>
+          <credentialsId>jenkins</credentialsId>
+          <tagsFilter></tagsFilter>
+          <reverseByDate>true</reverseByDate>
+          <reverseByName>false</reverseByName>
+          <defaultValue>trunk</defaultValue>
+          <maxTags></maxTags>
+        </hudson.scm.listtagsparameter.ListSubversionTagsParameterDefinition>
         <hudson.model.ChoiceParameterDefinition>
           <name>NodeZuordnung</name>
           <description>Knotenzuordnung</description>
@@ -36,52 +47,62 @@
           <name>UnitTestTestsysteme</name>
           <description>Gibt die Systeme an, auf denen die Unit-Testfälle ausgeführt werden sollen.
 Auf dem lokalen System wird unabhängig von der Auswahl immer getestet.</description>
-          <defaultValue>AIX LINUX SOLARIS ZOS</defaultValue>
+          <defaultValue>AIX SOLARIS ZOS</defaultValue>
         </hudson.model.StringParameterDefinition>
         <hudson.model.StringParameterDefinition>
           <name>SystemtestTestsysteme</name>
           <description>Gibt die Systeme an, auf denen die Systemtestfälle ausgeführt werden sollen.</description>
-          <defaultValue>AIX LINUX SOLARIS ZOS</defaultValue>
+          <defaultValue>AIX SOLARIS ZOS</defaultValue>
         </hudson.model.StringParameterDefinition>
         <hudson.model.BooleanParameterDefinition>
-          <name>SystemtestLocal</name>
+          <name>WithSystemtestLocal</name>
           <description>Lokal Systemtests ausführen?</description>
           <defaultValue>true</defaultValue>
         </hudson.model.BooleanParameterDefinition>
         <hudson.model.BooleanParameterDefinition>
-          <name>GUITests</name>
+          <name>WithGuiTests</name>
           <description>Gibt an, ob die GUI-Regressionstests ausgeführt werden sollen.</description>
           <defaultValue>true</defaultValue>
         </hudson.model.BooleanParameterDefinition>
         <hudson.model.BooleanParameterDefinition>
-          <name>SVNCleanup</name>
+          <name>WithSvnCleanup</name>
           <description>Workspace bei Problemen mit SVN bereinigen?</description>
           <defaultValue>false</defaultValue>
         </hudson.model.BooleanParameterDefinition>
         <hudson.model.BooleanParameterDefinition>
-          <name>Checkout</name>
+          <name>WithCheckout</name>
           <description>Auschecken?</description>
           <defaultValue>false</defaultValue>
         </hudson.model.BooleanParameterDefinition>
         <hudson.model.BooleanParameterDefinition>
           <name>WithClean</name>
-          <description>Mit clean?</description>
+          <description>Mit clean (Gradle)</description>
           <defaultValue>true</defaultValue>
         </hudson.model.BooleanParameterDefinition>
         <hudson.model.BooleanParameterDefinition>
           <name>WithBuild</name>
-          <description>Mit build und buildAllComponents?</description>
+          <description>Bauen der Komponenten und statische Analysen durchführen</description>
           <defaultValue>true</defaultValue>
         </hudson.model.BooleanParameterDefinition>
         <hudson.model.BooleanParameterDefinition>
           <name>WithCheckBuildscripts</name>
-          <description>Mit checkBuildscripts?</description>
+          <description>Prüfung der Buildscripte</description>
           <defaultValue>true</defaultValue>
         </hudson.model.BooleanParameterDefinition>
         <hudson.model.BooleanParameterDefinition>
           <name>WithStaticAnalysis</name>
           <description>Ergebnisse der statischen Analyse ausgeben (jUnit, Codenarc, Findbugs, Checkstyle, Classycle)</description>
           <defaultValue>true</defaultValue>
+        </hudson.model.BooleanParameterDefinition>
+        <hudson.model.BooleanParameterDefinition>
+          <name>WithCompileManual</name>
+          <description>Handbuch erstellen</description>
+          <defaultValue>false</defaultValue>
+        </hudson.model.BooleanParameterDefinition>
+        <hudson.model.BooleanParameterDefinition>
+          <name>WithGwtCompile</name>
+          <description>GUI compilieren</description>
+          <defaultValue>false</defaultValue>
         </hudson.model.BooleanParameterDefinition>
       </parameterDefinitions>
     </hudson.model.ParametersDefinitionProperty>
@@ -91,7 +112,7 @@ Auf dem lokalen System wird unabhängig von der Auswahl immer getestet.</descrip
   </properties>
   <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@2.23">
     <script>node {
-    ws (&apos;G:/Source/IdeaProjects/TestrunnerPipeline/src/main/jobs&apos;) {
+    ws (&apos;C:/JenkinsWorkshop/jenkins_ws/TestrunnerPipeline/src/main/jobs&apos;) {
         /*
         checkout poll: true, scm: [
             $class          : &apos;SubversionSCM&apos;,
@@ -104,12 +125,8 @@ Auf dem lokalen System wird unabhängig von der Auswahl immer getestet.</descrip
         ]
         stash &apos;Jenkinsfile&apos;
         */
-        
-       // load &apos;Jenkinsfile.groovy&apos;
-       /*Test SCM Sync*/
-       
-       load &apos;E:\\Temp\\Test\\jenkins_ws\\TestrunnerPipeline\\src\\main\\jobs\\Jenkinsfile.groovy&apos;
-
+        env.JAVA_HOME = &apos;C:/JDK7&apos;
+        load &apos;Jenkinsfile.groovy&apos;
     }
 }</script>
     <sandbox>false</sandbox>
