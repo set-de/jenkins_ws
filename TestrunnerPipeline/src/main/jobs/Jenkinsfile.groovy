@@ -189,14 +189,54 @@ node(NodeZuordnung) {
                               javaCommand          : "${env.JAVA_BINARY}",
                               reportPath           : "${env.WORKSPACE}/Workspace/report/",
                               statusServerPorts    : '1234',
+                              testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle",
+                              testrunnerJar        : 'Testtools.jar',
+                              testrunnerMainClass  : 'de.setsoftware.posy.testrunner.TestrunnerMain',
+                              testrunnerPath       : "${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools",
+                              testrunnerUsers      : "H0"
+                        ])
+                    } else {
+                        echo 'Skipping SystemtestLocal'
+                    }
+                },
+                'Systemtests Plugins' : {
+                    if (SystemtestPlugins.toBoolean()) {
+                        step([$class               : 'TestrunnerBuilder',
+                              applicationProperties: "${TESTRUNNER_APPLICATION}",
+                              assertionsEnabled    : true,
+                              clusters             : "${TESTRUNNER_CLUSTER}",
+                              instrumented         : true,
+                              javaCommand          : "${env.JAVA_BINARY}",
+                              reportPath           : "${env.WORKSPACE}/Workspace/report/",
+                              statusServerPorts    : '1234',
                               testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle-Plugins",
                               testrunnerJar        : 'Testtools.jar',
                               testrunnerMainClass  : 'de.setsoftware.posy.testrunner.TestrunnerMain',
                               testrunnerPath       : "${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools",
-                              testrunnerUsers      : "${env.TESTRUNNER_USER}"
+                              testrunnerUsers      : "H1"
                         ])
                     } else {
-                        echo 'Skipping SystemtestLocal'
+                        echo 'Skipping SystemtestPlugins'
+                    }
+                },
+                'Systemtests Replikation' : {
+                    if (SystemtestReplikation.toBoolean()) {
+                        step([$class               : 'TestrunnerBuilder',
+                              applicationProperties: "${TESTRUNNER_APPLICATION}",
+                              assertionsEnabled    : true,
+                              clusters             : "${TESTRUNNER_CLUSTER}",
+                              instrumented         : true,
+                              javaCommand          : "${env.JAVA_BINARY}",
+                              reportPath           : "${env.WORKSPACE}/Workspace/report/",
+                              statusServerPorts    : '1234',
+                              testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle-Replikation",
+                              testrunnerJar        : 'Testtools.jar',
+                              testrunnerMainClass  : 'de.setsoftware.posy.testrunner.TestrunnerMain',
+                              testrunnerPath       : "${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools",
+                              testrunnerUsers      : "H2"
+                        ])
+                    } else {
+                        echo 'Skipping SystemtestReplikation'
                     }
                 }
             )
@@ -355,7 +395,7 @@ void nodeSetUp(String testRunnerUser) {
     }
 
     // Testrunner-User für den Build in Environment speichern
-    env.TESTRUNNER_USER = testRunnerUser
+    //env.TESTRUNNER_USER = testRunnerUser
 
     println 'done node setup'
 }
