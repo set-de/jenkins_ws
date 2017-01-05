@@ -152,16 +152,11 @@ node(NodeZuordnung) {
                         stash includes: 'Workspace/POSY-Online-Hilfe/', name: 'flare-input'
 
                         node('windows && flare') {
-                            if (WithCompileFlare.toBoolean()) {
-                                deleteDir()
-                                unstash 'flare-input'
-                                dir('Workspace/POSY-Online-Hilfe') {
-                                    bat 'buildFlare.cmd'
-                                }
-                            } else {
-                                println "Skipping flare compile"
-                            }
-
+							deleteDir()
+							unstash 'flare-input'
+							dir('Workspace/POSY-Online-Hilfe') {
+								bat 'buildFlare.cmd'
+							}
                             println "Stashing flare-output"
                             stash includes: 'Workspace/POSY-Online-Hilfe/POSY-MailManagement/Output/jenkins/', excludes: '**/Temporary/**', name: 'flare-output'
                             println "Archiving Flare logs"
