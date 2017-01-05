@@ -72,7 +72,7 @@ node(NodeZuordnung) {
             parallel(
                 'clean': {
                     if (WithClean.toBoolean())
-                        callGradle(0, 'cleanTest')
+                        callGradle(0, 'clean')
                 }
             )
 
@@ -86,7 +86,7 @@ node(NodeZuordnung) {
                     }
 
                     if (WithBuild.toBoolean()) {
-                        tasks.add('SET-Standard-Lib:build checkstyle')
+                        tasks.add('buildAllComponents')
                         if (!WithGwtCompile.toBoolean()) {
                             tasks.add('-x compileGwt')
                         }
@@ -562,7 +562,7 @@ def getCompilerWarnings(StaticAnalysisType type) {
 def getCodenarc(StaticAnalysisType type) {
     println "Collecting " + type.name + "..."
     step([$class: 'WarningsPublisher', parserConfigurations: [[parserName: 'Codenarc', pattern: type.pattern]],
-	                 unstableTotalAll: '0', canComputeNew: false, canResolveRelativePaths: false])
+                     unstableTotalAll: '0', canComputeNew: false, canResolveRelativePaths: false])
     archiveArtifacts allowEmptyArchive: true, artifacts: type.pattern, defaultExcludes: false
 }
 
