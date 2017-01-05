@@ -484,4 +484,5 @@ enum StaticAnalysisType {
     
 }
 
+// Wird benötigt, damit das Load (aus dem Jenkins Job, das diese Pipeline läd) nicht hängen bleibt.
 return this;
