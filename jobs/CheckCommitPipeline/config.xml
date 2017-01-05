@@ -1,0 +1,118 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<flow-definition plugin="workflow-job@2.9">
+  <actions/>
+  <description></description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <jenkins.model.BuildDiscarderProperty>
+      <strategy class="hudson.tasks.LogRotator">
+        <daysToKeep>-1</daysToKeep>
+        <numToKeep>10</numToKeep>
+        <artifactDaysToKeep>-1</artifactDaysToKeep>
+        <artifactNumToKeep>-1</artifactNumToKeep>
+      </strategy>
+    </jenkins.model.BuildDiscarderProperty>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.model.StringParameterDefinition>
+          <name>Revision</name>
+          <description>HEAD oder Revisionsnummer ohne &quot;@&quot;</description>
+          <defaultValue>HEAD</defaultValue>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.ChoiceParameterDefinition>
+          <name>NodeZuordnung</name>
+          <description>Knotenzuordnung</description>
+          <choices class="java.util.Arrays$ArrayList">
+            <a class="string-array">
+              <string>windows</string>
+              <string>linux</string>
+              <string>dev052</string>
+              <string>dev056</string>
+              <string>dev024</string>
+            </a>
+          </choices>
+        </hudson.model.ChoiceParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>UnitTestTestsysteme</name>
+          <description>Gibt die Systeme an, auf denen die Unit-Testfälle ausgeführt werden sollen.
+Auf dem lokalen System wird unabhängig von der Auswahl immer getestet.</description>
+          <defaultValue>AIX LINUX SOLARIS ZOS</defaultValue>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>SystemtestTestsysteme</name>
+          <description>Gibt die Systeme an, auf denen die Systemtestfälle ausgeführt werden sollen.</description>
+          <defaultValue>AIX LINUX SOLARIS ZOS</defaultValue>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.BooleanParameterDefinition>
+          <name>SystemtestLocal</name>
+          <description>Lokal Systemtests ausführen?</description>
+          <defaultValue>true</defaultValue>
+        </hudson.model.BooleanParameterDefinition>
+        <hudson.model.BooleanParameterDefinition>
+          <name>GUITests</name>
+          <description>Gibt an, ob die GUI-Regressionstests ausgeführt werden sollen.</description>
+          <defaultValue>true</defaultValue>
+        </hudson.model.BooleanParameterDefinition>
+        <hudson.model.BooleanParameterDefinition>
+          <name>SVNCleanup</name>
+          <description>Workspace bei Problemen mit SVN bereinigen?</description>
+          <defaultValue>false</defaultValue>
+        </hudson.model.BooleanParameterDefinition>
+        <hudson.model.BooleanParameterDefinition>
+          <name>Checkout</name>
+          <description>Auschecken?</description>
+          <defaultValue>false</defaultValue>
+        </hudson.model.BooleanParameterDefinition>
+        <hudson.model.BooleanParameterDefinition>
+          <name>WithClean</name>
+          <description>Mit clean?</description>
+          <defaultValue>true</defaultValue>
+        </hudson.model.BooleanParameterDefinition>
+        <hudson.model.BooleanParameterDefinition>
+          <name>WithBuild</name>
+          <description>Mit build und buildAllComponents?</description>
+          <defaultValue>true</defaultValue>
+        </hudson.model.BooleanParameterDefinition>
+        <hudson.model.BooleanParameterDefinition>
+          <name>WithCheckBuildscripts</name>
+          <description>Mit checkBuildscripts?</description>
+          <defaultValue>true</defaultValue>
+        </hudson.model.BooleanParameterDefinition>
+        <hudson.model.BooleanParameterDefinition>
+          <name>WithStaticAnalysis</name>
+          <description>Ergebnisse der statischen Analyse ausgeben (jUnit, Codenarc, Findbugs, Checkstyle, Classycle)</description>
+          <defaultValue>true</defaultValue>
+        </hudson.model.BooleanParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+    <org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
+      <triggers/>
+    </org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
+  </properties>
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@2.23">
+    <script>node {
+    ws (&apos;G:/Source/IdeaProjects/TestrunnerPipeline/src/main/jobs&apos;) {
+        /*
+        checkout poll: true, scm: [
+            $class          : &apos;SubversionSCM&apos;,
+            locations       : [
+                [credentialsId: &apos;b47f9993-017e-4971-8f8f-4c20a260feef&apos;, depthOption: &apos;infinity&apos;, ignoreExternalsOption: true,
+                 local        : &apos;Pipeline&apos;,
+                 remote       : &quot;https://svn.intranet.set.de/svn/POSY-Redesign/${Branch}/Workspace/Build/pipelines/CheckCommit@${Revision}&quot;],
+                ],
+            workspaceUpdater: [$class: &apos;UpdateWithCleanUpdater&apos;]
+        ]
+        stash &apos;Jenkinsfile&apos;
+        */
+        
+       // load &apos;Jenkinsfile.groovy&apos;
+       /*Test SCM Sync*/
+       
+       load &apos;E:\\Temp\\Test\\jenkins_ws\\TestrunnerPipeline\\src\\main\\jobs\\Jenkinsfile.groovy&apos;
+
+    }
+}</script>
+    <sandbox>false</sandbox>
+  </definition>
+  <triggers/>
+</flow-definition>
