@@ -103,44 +103,55 @@ node(NodeZuordnung) {
 
         stage ('Get Results of Static Analysis') {
             
-            parallel(
+			try {
+				parallel(
 
-                'Get Unit Test Results': {
-                    if (WithStaticAnalysis.toBoolean()) {
-                        getUnit(StaticAnalysisType.JUNIT)
-                    }
-                },
-                'Get CodeNarc Results': {
-                    if (WithStaticAnalysis.toBoolean()) {
-                        getAsArtefact(StaticAnalysisType.CODENARC)
-                    }
-                },
-                'Get Findbugs Results': {
-                    if (WithStaticAnalysis.toBoolean()) {
-                        getFindbugs(StaticAnalysisType.FINDBUGS, ResetFindbugsLimits.toBoolean())
-                    }
-                },
-                'Get Checkstyle Results': {
-                    if (WithStaticAnalysis.toBoolean()) {
-                        getCheckstyle(StaticAnalysisType.CHECKSTYLE, ResetCheckstyleLimits.toBoolean())
-                    }
-                },
-                'Get Classycle Results': {
-                    if (WithStaticAnalysis.toBoolean()) {
-                        getAsArtefact(StaticAnalysisType.CLASSYCLE)
-                    }
-                },
-                'Get Task Scanner Results': {
-                    if (WithStaticAnalysis.toBoolean()) {
-                        getTodos(StaticAnalysisType.TODOS)
-                    }
-                },
-                'Get Compiler Warnings': {
-                    if (WithStaticAnalysis.toBoolean()) {
-                        getCompilerWarnings(StaticAnalysisType.WARNINGS)
-                    }
-                }
-            )
+					'Get Unit Test Results': {
+						if (WithBuild.toBoolean()) {
+							getUnit(StaticAnalysisType.JUNIT)
+						}
+					},
+					'Get CodeNarc Results': {
+						if (WithStaticAnalysis.toBoolean()) {
+							getAsArtefact(StaticAnalysisType.CODENARC)
+						}
+					},
+					'Get Findbugs Results': {
+						if (WithStaticAnalysis.toBoolean()) {
+							getFindbugs(StaticAnalysisType.FINDBUGS, ResetFindbugsLimits.toBoolean())
+						}
+					},
+					'Get Checkstyle Results': {
+						if (WithStaticAnalysis.toBoolean()) {
+							getCheckstyle(StaticAnalysisType.CHECKSTYLE, ResetCheckstyleLimits.toBoolean())
+						}
+					},
+					'Get Classycle Results': {
+						if (WithStaticAnalysis.toBoolean()) {
+							getAsArtefact(StaticAnalysisType.CLASSYCLE)
+						}
+					},
+					'Get Task Scanner Results': {
+						if (WithStaticAnalysis.toBoolean()) {
+							getTodos(StaticAnalysisType.TODOS)
+						}
+					},
+					'Get Compiler Warnings': {
+						if (WithStaticAnalysis.toBoolean()) {
+							getCompilerWarnings(StaticAnalysisType.WARNINGS)
+						}
+					}
+				)
+			} finally {
+				parallel (
+					'Send Mail': {
+						mailToCommitters()
+					},
+					'HipChat': {
+						jabber()
+					}
+				)
+			}
         }
         
         stage ('Systemtests local and compile Manual') {
@@ -336,8 +347,8 @@ void nodeSetUp(String testRunnerUser) {
     }
 
     // Speicherverbrauch etwas minimieren im Gegensatz zu lokalen Builds
-    env.GRADLE_OPTS = '-Xmx1024m'
-    env.JAVA_OPTS = '-Xmx1024m'
+    env.GRADLE_OPTS = '-Xmx4G'
+    env.JAVA_OPTS = '-Xmx4G'
 
     // Pfade relativ zum Workspace unter Linux
     String[] pathsLinux = [
@@ -581,6 +592,32 @@ enum StaticAnalysisType {
         this.pattern = pattern
     }
     
+}
+
+def mailToCommitters() {
+	emailext to: 'as@schrell.de', // to darf nicht leer oder null sein
+			// recipientProviders: [[$class: 'CulpritsRecipientProvider'], [$class: 'DevelopersRecipientProvider']],
+			subject: "Pipeline CheckCommit-Anteil ${currentBuild.result == null ? 'SUCCESSFUL' : currentBuild.result}",
+			body: "Siehe ${env.BUILD_URL}"
+}
+
+def jabber() {
+	def col = 'GREEN'
+	def state = 'SUCCESSFUL'
+	switch (currentBuild.result) {
+		case 'UNSTABLE':
+			col = 'YELLOW'
+			state = 'UNSTABLE'
+			break;
+		case 'FAILURE':
+			col = 'RED'
+			state = 'FAILURE'
+			break;
+	}
+	echo "RESULT: ${currentBuild.result}"
+	hipchatSend (color: col, notify: true,
+		message: "Jenkins: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' ${state} (${env.BUILD_URL})"
+	)
 }
 
 // Wird benötigt, damit das Load (aus dem Jenkins Job, das diese Pipeline läd) nicht hängen bleibt.
