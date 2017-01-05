@@ -72,7 +72,7 @@ node(NodeZuordnung) {
             parallel(
                 'clean': {
                     if (WithClean.toBoolean())
-                        callGradle(0, 'clean')
+                        callGradle(0, 'cleanTest')
                 }
             )
 
@@ -86,7 +86,7 @@ node(NodeZuordnung) {
                     }
 
                     if (WithBuild.toBoolean()) {
-                        tasks.add('buildAllComponents')
+                        tasks.add('SET-Standard-Lib:build checkstyle')
                         if (!WithGwtCompile.toBoolean()) {
                             tasks.add('-x compileGwt')
                         }
@@ -111,8 +111,8 @@ node(NodeZuordnung) {
                     }
                 },
                 'Get CodeNarc Results': {
-                    if (WithStaticAnalysis.toBoolean()) {
-                        getAsArtefact(StaticAnalysisType.CODENARC)
+                    if (WithCheckBuildscripts.toBoolean()) {
+                        getCodenarc(StaticAnalysisType.CODENARC)
                     }
                 },
                 'Get Findbugs Results': {
@@ -552,10 +552,18 @@ def getTodos(StaticAnalysisType type) {
           low: '@deprecated', ignoreCase: true, asRegexp: false, excludePattern:'', pattern: type.pattern])
     // Kein Archivieren der Dateien, die das Pattern matchen, da es sich hier um Sourcedateien handelt.
 }
+
 def getCompilerWarnings(StaticAnalysisType type) {
     println "Collecting " + type.name + "..."
     step([$class: 'WarningsPublisher', consoleParsers: [[parserName: 'Java Compiler (javac)']]])
     // Kein Archivieren, da die Konsole geparst wird.
+}
+
+def getCodenarc(StaticAnalysisType type) {
+    println "Collecting " + type.name + "..."
+    step([$class: 'WarningsPublisher', parserConfigurations: [[parserName: 'Codenarc', pattern: type.pattern]],
+	                 unstableTotalAll: '0', canComputeNew: false, canResolveRelativePaths: false])
+    archiveArtifacts allowEmptyArchive: true, artifacts: type.pattern, defaultExcludes: false
 }
 
 enum StaticAnalysisType {
