@@ -29,81 +29,75 @@ node(NodeZuordnung) {
 
         nodeSetUp(testrunnerUser)
 
-        stage('Cleanup (optional)') {
-    
-            parallel(
-                    'SVN-Cleanup': {
-                        if (SVNCleanup.toBoolean()) {
-                            run 'svn cleanup Workspace'
-                            run 'svn cleanup program'
-                        }
-                    }
-            )
-        }
-        
         stage('Checkout') {
 
             parallel(
-                    'SVN-Checkout': {
-                        if (Checkout.toBoolean()) {
-                            checkout poll: true, scm: [
-                                    $class          : 'SubversionSCM',
-                                    locations       : [
-                                            [credentialsId: 'jenkins', depthOption: 'infinity', ignoreExternalsOption: true,
-                                             local        : 'Workspace',
-                                             remote       : "https://svn.intranet.set.de/svn/POSY-Redesign/${Branch}/Workspace@${Revision}"],
-                                            [credentialsId: 'jenkins', depthOption: 'infinity', ignoreExternalsOption: true,
-                                             local        : 'program',
-                                             remote       : "https://svn.intranet.set.de/svn/POSY-Redesign/${Branch}/program@${Revision}"]],
-                                    // workspaceUpdater: [$class: 'UpdateWithCleanUpdater']
-                            ]
-                        }
+                'SVN-Checkout': {
+                    // Wenn angefordert erstmal ein cleanup auf dem SVN machen
+                    if (WithSvnCleanup.toBoolean()) {
+                        run 'svn cleanup Workspace'
+                        run 'svn cleanup program'
+                    } else {
+                        println "Skipping SVN-Cleanup"
                     }
+
+                    // Dann aus dem SVN Workspace und program auschecken
+                    if (WithCheckout.toBoolean()) {
+                        checkout poll: true, scm: [
+                            $class          : 'SubversionSCM',
+                            locations       : [
+                                [credentialsId: 'jenkins', depthOption: 'infinity', ignoreExternalsOption: true,
+                                 local        : 'Workspace',
+                                 remote       : "https://svn.intranet.set.de/svn/POSY-Redesign/${Branch}/Workspace@${Revision}"],
+                                [credentialsId: 'jenkins', depthOption: 'infinity', ignoreExternalsOption: true,
+                                 local        : 'program',
+                                 remote       : "https://svn.intranet.set.de/svn/POSY-Redesign/${Branch}/program@${Revision}"]],
+                                // workspaceUpdater: [$class: 'UpdateWithCleanUpdater']
+                        ]
+                    } else {
+                        println "Skipping SVN-Checkout"
+                    }
+
+                    // Nun die SVN-Informationen besorgen und als Umgebungsvariablen setzen
+                    env.SVN_REVISION = getSvnRev('Workspace')
+                    println "SVN_REVISION: ${env.SVN_REVISION}"
+                    env.SVN_URL = getSvnUrl('Workspace')
+                    println "SVN_URL: ${env.SVN_URL}"
+                }
             )
         }
-        
-        stage('SVN-Infos') {
-    
-            parallel(
-                    'Get SVN Infos': {
-                        env.SVN_REVISION = getSvnRev('Workspace')
-                        println "SVN_REVISION: ${env.SVN_REVISION}"
-                        env.SVN_URL = getSvnUrl('Workspace')
-                        println "SVN_URL: ${env.SVN_URL}"
-                    }
-            )
-        }
-        
+
         stage ('Build Components and Static Analysis') {
     
             parallel(
-                    'clean': {
-                        if (WithClean.toBoolean())
-                            callGradle(0,'clean')
-                    }
+                'clean': {
+                    if (WithClean.toBoolean())
+                        callGradle(0, 'clean')
+                }
             )
 
             parallel(
-                    'build': {
-    
-                        def tasks = []
-    
-                        if (WithCheckBuildscripts.toBoolean()) {
-                            tasks.add('checkBuildscripts')
-                        }
-    
-                        if (WithBuild.toBoolean()) {
-                            tasks.add('buildAllComponents')
+                'build': {
+
+                    def tasks = []
+
+                    if (WithCheckBuildscripts.toBoolean()) {
+                        tasks.add('checkBuildscripts')
+                    }
+
+                    if (WithBuild.toBoolean()) {
+                        tasks.add('buildAllComponents')
+                        if (!WithGwtCompile.toBoolean()) {
                             tasks.add('-x compileGwt')
                         }
-
-                        if (WithGenerateManual.toBoolean()) {
-                            tasks.add('generateManual')
-                        }
-    
-                        callGradle(0, tasks.join(' '))
-    
                     }
+
+                    if (!tasks.isEmpty()) {
+                        callGradle(0, tasks.join(' '))
+                    } else {
+                        println "No grade tasks to execute"
+                    }
+                }
             )
         }
 
@@ -111,114 +105,177 @@ node(NodeZuordnung) {
             
             parallel(
 
-                    'Get Unit Test Results': {
-                        if (WithStaticAnalysis.toBoolean()) {
-                            getUnit(StaticAnalysisType.JUNIT)
-                        }
-                    },
-                    'Get CodeNarc Results': {
-                        if (WithStaticAnalysis.toBoolean()) {
-                            getAsArtefact(StaticAnalysisType.CODENARC)
-                        }
-                    },
-                    'Get Findbugs Results': {
-                        if (WithStaticAnalysis.toBoolean()) {
-                            getFindbugs(StaticAnalysisType.FINDBUGS, ResetFindbugsLimits.toBoolean())
-                        }
-                    },
-                    'Get Checkstyle Results': {
-                        if (WithStaticAnalysis.toBoolean()) {
-                            getCheckstyle(StaticAnalysisType.CHECKSTYLE, ResetCheckstyleLimits.toBoolean())
-                        }
-                    },
-                    'Get Classycle Results': {
-                        if (WithStaticAnalysis.toBoolean()) {
-                            getAsArtefact(StaticAnalysisType.CLASSYCLE)
-                        }
-                    },
-                    'Get Task Scanner Results': {
-                        if (WithStaticAnalysis.toBoolean()) {
-                            getTodos()
-                        }
+                'Get Unit Test Results': {
+                    if (WithStaticAnalysis.toBoolean()) {
+                        getUnit(StaticAnalysisType.JUNIT)
                     }
+                },
+                'Get CodeNarc Results': {
+                    if (WithStaticAnalysis.toBoolean()) {
+                        getAsArtefact(StaticAnalysisType.CODENARC)
+                    }
+                },
+                'Get Findbugs Results': {
+                    if (WithStaticAnalysis.toBoolean()) {
+                        getFindbugs(StaticAnalysisType.FINDBUGS, ResetFindbugsLimits.toBoolean())
+                    }
+                },
+                'Get Checkstyle Results': {
+                    if (WithStaticAnalysis.toBoolean()) {
+                        getCheckstyle(StaticAnalysisType.CHECKSTYLE, ResetCheckstyleLimits.toBoolean())
+                    }
+                },
+                'Get Classycle Results': {
+                    if (WithStaticAnalysis.toBoolean()) {
+                        getAsArtefact(StaticAnalysisType.CLASSYCLE)
+                    }
+                },
+                'Get Task Scanner Results': {
+                    if (WithStaticAnalysis.toBoolean()) {
+                        getTodos(StaticAnalysisType.TODOS)
+                    }
+                },
+                'Get Compiler Warnings': {
+                    if (WithStaticAnalysis.toBoolean()) {
+                        getCompilerWarnings(StaticAnalysisType.WARNINGS)
+                    }
+                }
             )
         }
         
-        stage ('Generate Manual') {
+        stage ('Systemtests local and compile Manual') {
 
             parallel(
-                    'generate manual': {
-                        callGradle(0, 'generateManual')
+                'Compile Manual': {
+                    if (WithCompileManual.toBoolean()) {
+                        println "Stashing flare-input"
+                        stash includes: 'Workspace/POSY-Online-Hilfe/', name: 'flare-input'
+
+                        node('windows && flare') {
+							deleteDir()
+							unstash 'flare-input'
+							dir('Workspace/POSY-Online-Hilfe') {
+								bat 'buildFlare.cmd'
+							}
+                            println "Stashing flare-output"
+                            stash includes: 'Workspace/POSY-Online-Hilfe/POSY-MailManagement/Output/jenkins/', excludes: '**/Temporary/**', name: 'flare-output'
+                            println "Archiving Flare logs"
+                            archiveArtifacts 'Workspace/POSY-Online-Hilfe/POSY-MailManagement/Output/**/*.mclog'
+                        }
+                        unstash 'flare-output'
+                        sh "mkdir -p '$env.WORKSPACE/Workspace/Buildresults'"
+                        sh "rm -rf '$env.WORKSPACE/Workspace/Buildresults/Handbuch'"
+                        sh "cp -R '$env.WORKSPACE/Workspace/POSY-Online-Hilfe/POSY-MailManagement/Output/jenkins' '$env.WORKSPACE/Workspace/Buildresults/Handbuch'"
+
+                        dir('Workspace/rootProject') {
+                            callGradle(0, "injectManual")
+                        }
+                    } else {
+                        println "Skipping compile manual"
                     }
+                },
+                'Systemtests local' : {
+                    if (SystemtestLocal.toBoolean()) {
+                        step([$class               : 'TestrunnerBuilder',
+                              applicationProperties: "${TESTRUNNER_APPLICATION}",
+                              assertionsEnabled    : true,
+                              clusters             : "${TESTRUNNER_CLUSTER}",
+                              instrumented         : true,
+                              javaCommand          : "${env.JAVA_BINARY}",
+                              reportPath           : "${env.WORKSPACE}/Workspace/report/",
+                              statusServerPorts    : '1234',
+                              testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle",
+                              testrunnerJar        : 'Testtools.jar',
+                              testrunnerMainClass  : 'de.setsoftware.posy.testrunner.TestrunnerMain',
+                              testrunnerPath       : "${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools",
+                              testrunnerUsers      : "H0"
+                        ])
+                    } else {
+                        echo 'Skipping SystemtestLocal'
+                    }
+                },
+                'Systemtests Plugins' : {
+                    if (SystemtestPlugins.toBoolean()) {
+                        step([$class               : 'TestrunnerBuilder',
+                              applicationProperties: "${TESTRUNNER_APPLICATION}",
+                              assertionsEnabled    : true,
+                              clusters             : "${TESTRUNNER_CLUSTER}",
+                              instrumented         : true,
+                              javaCommand          : "${env.JAVA_BINARY}",
+                              reportPath           : "${env.WORKSPACE}/Workspace/report/",
+                              statusServerPorts    : '1234',
+                              testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle-Plugins",
+                              testrunnerJar        : 'Testtools.jar',
+                              testrunnerMainClass  : 'de.setsoftware.posy.testrunner.TestrunnerMain',
+                              testrunnerPath       : "${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools",
+                              testrunnerUsers      : "H1"
+                        ])
+                    } else {
+                        echo 'Skipping SystemtestPlugins'
+                    }
+                },
+                'Systemtests Replikation' : {
+                    if (SystemtestReplikation.toBoolean()) {
+                        step([$class               : 'TestrunnerBuilder',
+                              applicationProperties: "${TESTRUNNER_APPLICATION}",
+                              assertionsEnabled    : true,
+                              clusters             : "${TESTRUNNER_CLUSTER}",
+                              instrumented         : true,
+                              javaCommand          : "${env.JAVA_BINARY}",
+                              reportPath           : "${env.WORKSPACE}/Workspace/report/",
+                              statusServerPorts    : '1234',
+                              testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle-Replikation",
+                              testrunnerJar        : 'Testtools.jar',
+                              testrunnerMainClass  : 'de.setsoftware.posy.testrunner.TestrunnerMain',
+                              testrunnerPath       : "${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools",
+                              testrunnerUsers      : "H2"
+                        ])
+                    } else {
+                        echo 'Skipping SystemtestReplikation'
+                    }
+                }
             )
         }
 
-        
-        stage('Systemtests Local') {
-            milestone()
-            parallel(
-                    'Systemtests Local': {
-                        if (SystemtestLocal.toBoolean()) {
-                            step([$class               : 'TestrunnerBuilder',
-                                  applicationProperties: "${TESTRUNNER_APPLICATION}",
-                                  assertionsEnabled    : true,
-                                  clusters             : "${TESTRUNNER_CLUSTER}",
-                                  instrumented         : true,
-                                  javaCommand          : "${env.JAVA_BINARY}",
-                                  reportPath           : "${env.WORKSPACE}/Workspace/report/",
-                                  statusServerPorts    : '1234',
-                                  testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle-Plugins",
-                                  testrunnerJar        : 'Testtools.jar',
-                                  testrunnerMainClass  : 'de.setsoftware.posy.testrunner.TestrunnerMain',
-                                  testrunnerPath       : "${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools",
-                                  testrunnerUsers      : "${env.TESTRUNNER_USER}"
-                            ])
-                        } else {
-                            echo 'Skipping SystemtestLocal'
-                        }
-                    }
-            )
-        }
-        
         stage('Systemtests Remote') {
             milestone()
             parallel(
-                    'Systemtests Remote': {
-                        if (!"${SystemtestTestsysteme}".isEmpty()) {
-                            echo 'SystemTests Testsysteme DUMMY...'
-                            step([$class: 'JUnitResultArchiver', keepLongStdio: true, testResults: "Workspace/**/build/test-results/*.xml,Workspace/reports/junit/*_system_result.xml"])
-                        } else {
-                            echo 'Skipping Systemtests'
-                        }
+                'Systemtests Remote': {
+                    if (!"${SystemtestTestsysteme}".isEmpty()) {
+                        echo 'SystemTests Testsysteme DUMMY...'
+                        step([$class: 'JUnitResultArchiver', keepLongStdio: true, testResults: "Workspace/**/build/test-results/*.xml,Workspace/reports/junit/*_system_result.xml"])
+                    } else {
+                        echo 'Skipping Systemtests'
                     }
+                }
             )
         }
         
         stage('UnitTests Remote') {
             milestone()
             parallel(
-                    'Unit-Tests Remote': {
-                        if (!"${UnitTestTestsysteme}".isEmpty()) {
-                            echo 'UnitTests Testsysteme DUMMY...'
-                        } else {
-                            echo 'Skipping Unit-Tests'
-                        }
+                'Unit-Tests Remote': {
+                    if (!"${UnitTestTestsysteme}".isEmpty()) {
+                        echo 'UnitTests Testsysteme DUMMY...'
+                    } else {
+                        echo 'Skipping Unit-Tests'
                     }
+                }
             )
         }
         
         stage('Auslieferung vorbereiten') {
             milestone()
             parallel(
-                    'Deployment (optional)': {
-                        if (currentBuild.description != null && currentBuild.description.contains("Auslieferbereit")) {
-                            build job: 'Auslieferbereit',
-                                    parameters: [
-                                            [$class: 'StringParameterValue', name: 'SVN_REVISION', value: "${env.SVN_REVISION}"],
-                                            [$class: 'StringParameterValue', name: 'BUILD_NUMBER', value: "${env.BUILD_ID}"]],
-                                    propagate: false, wait: false
-                        }
+                'Deployment (optional)': {
+                    if (currentBuild.description != null && currentBuild.description.contains("Auslieferbereit")) {
+                        build job: 'Auslieferbereit',
+                                parameters: [
+                                        [$class: 'StringParameterValue', name: 'SVN_REVISION', value: "${env.SVN_REVISION}"],
+                                        [$class: 'StringParameterValue', name: 'BUILD_NUMBER', value: "${env.BUILD_ID}"]],
+                                propagate: false, wait: false
                     }
+                }
             )
         }
         
@@ -233,8 +290,8 @@ node(NodeZuordnung) {
  *     <li><code>BUILD_DATE</code></li>
  *     <li><code>GRADLE_OPTS</code></li>
  *     <li><code>JAVA_HOME</code></li>
+ *     <li><code>JAVA_BINARY</code></li>
  *     <li><code>JAVA_OPTS</code></li>
- *     <li><code>TESTRUNNER_USER</code></li>
  *     <li><code>WORKSPACE</code></li>
  * </ul>
  * Zuätzlich wird der Pfad knotenspezifisch erweitert, damit folgende Programme gefunden werden:
@@ -243,6 +300,13 @@ node(NodeZuordnung) {
  *     <li>Subversion</li>
  * </ul>
  * Unter Linux wird auch der LD_LIBRARY_PATH erweitert.
+ *
+ * Für die Ausführung der Systemtestfälle werden die folgenden Variablen gesetzt
+ * <ul>
+ *     <li><code>TESTRUNNER_APPLICATION</code></li>
+ *     <li><code>TESTRUNNER_CLUSTER</code></li>
+ *     <li><code>TESTRUNNER_USER</code></li>
+ * </ul>
  *
  * @param testRunnerUser Testrunner-User für den Jenkins-Lauf.
  */
@@ -259,9 +323,6 @@ void nodeSetUp(String testRunnerUser) {
         env.BUILD_DATE = new SimpleDateFormat('yyyy-MM-dd_HH-mm-ss', Locale.GERMAN).format(new Date())
         println "BUILD_DATE: ${env.BUILD_DATE}"
     }
-
-    // Testrunner-User für den Build in Environment speichern
-    env.TESTRUNNER_USER = testRunnerUser
 
     // JAVA zum Bauen und Testen
     if (isUnix()) {
@@ -327,6 +388,9 @@ void nodeSetUp(String testRunnerUser) {
         TESTRUNNER_APPLICATION="application_jenkins_windows.xml"
         TESTRUNNER_CLUSTER="local_components"
     }
+
+    // Testrunner-User für den Build in Environment speichern
+    //env.TESTRUNNER_USER = testRunnerUser
 
     println 'done node setup'
 }
@@ -467,25 +531,31 @@ def getFindbugs(StaticAnalysisType type, boolean resetLimits) {
     archiveArtifacts allowEmptyArchive: true, artifacts: type.pattern, defaultExcludes: false
 }
 
-def getTodos() {
-    println "Scanning for TODOS, FIXMEs etc."
+def getTodos(StaticAnalysisType type) {
+    println "Collecting " + type.name + "..."
     step([$class: 'TasksPublisher', high: 'FIXME',
           normal: 'TODO PSY, TODO Auto-generated, TODO implement, TODO 7, TODO 8, TODO 8.2, TODO 9, TODO 10,'
-            + 'TODO 10.6, TODO 11, TODO 12, TODO 13, TODO 14, TODO 15, TODO 16, TODO 17, TODO 18, TODO 19, '
-            + 'TODO 20, TODO 21, TODO 22, TODO 23, TODO 24, TODO 25, TODO 26, TODO 27, TODO 28, TODO 29, '
-            + 'TODO 30, TODO 31, TODO 32, TODO 33, TODO 34, TODO 35, TODO 36, TODO 37, TODO 38, TODO 39, '
-            + 'TODO 40, TODO 41, TODO 42, TODO 43, TODO 44, TODO 45, TODO 46, TODO 47, TODO 48, TODO 49, '
-            + 'TODO 50, TODO 51, TODO 52, TODO 53, TODO 54, TODO 55, TODO 56, TODO 57, TODO 58, TODO 59, '
-            + 'TODO 60, TODO 61, TODO 62, TODO 63, TODO 64, TODO 65, TODO 66, TODO 67, TODO 68, TODO 69, '
-            + 'TODO 70, TODO 71, TODO 72, TODO 73, TODO 74, TODO 75, TODO 76, TODO 77, TODO 78, TODO 79, '
-            + 'TODO 80, TODO 81, TODO 82, TODO 83, TODO 84, TODO 85, TODO 86, TODO 87, TODO 88, TODO 89, '
-            + 'TODO 90, TODO 91, TODO 92, TODO 93, TODO 94, TODO 95, TODO 96, TODO 97, TODO 98, TODO 99, '
-            + 'TODO 100, TODO 101, TODO 102, TODO 103, TODO 104, TODO 105, TODO 106, TODO 107, TODO 108, '
-            + 'TODO 109, TODO 110, TODO 111, TODO 112, TODO 113, TODO 114, TODO 115, TODO 116, TODO 117, '
-            + 'TODO 118, TODO 119, TODO 120, TODO 121, TODO 122, TODO 123, TODO 124, TODO 125, TODO 126, '
-            + 'TODO 127, TODO 128, TODO 129, TODO 130, TODO 131, TODO 132, TODO 133, TODO 134, TODO 135, '
-            + 'TODO 136, TODO 137, TODO 138, TODO 139, TODO 140, TODO 141, TODO 142',
-          low: '@deprecated', ignoreCase: true, asRegexp: false, excludePattern:'', pattern:'**/src/**/*.java'])
+                  + 'TODO 10.6, TODO 11, TODO 12, TODO 13, TODO 14, TODO 15, TODO 16, TODO 17, TODO 18, TODO 19, '
+                  + 'TODO 20, TODO 21, TODO 22, TODO 23, TODO 24, TODO 25, TODO 26, TODO 27, TODO 28, TODO 29, '
+                  + 'TODO 30, TODO 31, TODO 32, TODO 33, TODO 34, TODO 35, TODO 36, TODO 37, TODO 38, TODO 39, '
+                  + 'TODO 40, TODO 41, TODO 42, TODO 43, TODO 44, TODO 45, TODO 46, TODO 47, TODO 48, TODO 49, '
+                  + 'TODO 50, TODO 51, TODO 52, TODO 53, TODO 54, TODO 55, TODO 56, TODO 57, TODO 58, TODO 59, '
+                  + 'TODO 60, TODO 61, TODO 62, TODO 63, TODO 64, TODO 65, TODO 66, TODO 67, TODO 68, TODO 69, '
+                  + 'TODO 70, TODO 71, TODO 72, TODO 73, TODO 74, TODO 75, TODO 76, TODO 77, TODO 78, TODO 79, '
+                  + 'TODO 80, TODO 81, TODO 82, TODO 83, TODO 84, TODO 85, TODO 86, TODO 87, TODO 88, TODO 89, '
+                  + 'TODO 90, TODO 91, TODO 92, TODO 93, TODO 94, TODO 95, TODO 96, TODO 97, TODO 98, TODO 99, '
+                  + 'TODO 100, TODO 101, TODO 102, TODO 103, TODO 104, TODO 105, TODO 106, TODO 107, TODO 108, '
+                  + 'TODO 109, TODO 110, TODO 111, TODO 112, TODO 113, TODO 114, TODO 115, TODO 116, TODO 117, '
+                  + 'TODO 118, TODO 119, TODO 120, TODO 121, TODO 122, TODO 123, TODO 124, TODO 125, TODO 126, '
+                  + 'TODO 127, TODO 128, TODO 129, TODO 130, TODO 131, TODO 132, TODO 133, TODO 134, TODO 135, '
+                  + 'TODO 136, TODO 137, TODO 138, TODO 139, TODO 140, TODO 141, TODO 142',
+          low: '@deprecated', ignoreCase: true, asRegexp: false, excludePattern:'', pattern: type.pattern])
+    // Kein Archivieren der Dateien, die das Pattern matchen, da es sich hier um Sourcedateien handelt.
+}
+def getCompilerWarnings(StaticAnalysisType type) {
+    println "Collecting " + type.name + "..."
+    step([$class: 'WarningsPublisher', consoleParsers: [[parserName: 'Java Compiler (javac)']]])
+    // Kein Archivieren, da die Konsole geparst wird.
 }
 
 enum StaticAnalysisType {
@@ -498,7 +568,10 @@ enum StaticAnalysisType {
     JUNIT('Unit-Test', 'Workspace/**/build/test-results/**/*.xml'),
 
     CLASSYCLE('Classycle', 'Workspace/**/build/reports/classycle/**'),
-    CODENARC('CodeNarc', 'Workspace/**/build/reports/codeNarc/*.xml')
+    CODENARC('CodeNarc', 'Workspace/**/build/reports/codeNarc/*.xml'),
+
+    TODOS('TODOS', 'Workspace/**/src/**/*.java'),
+    WARNINGS('Warnings','')
 
     String name
     String pattern
@@ -510,4 +583,5 @@ enum StaticAnalysisType {
     
 }
 
+// Wird benötigt, damit das Load (aus dem Jenkins Job, das diese Pipeline läd) nicht hängen bleibt.
 return this;
