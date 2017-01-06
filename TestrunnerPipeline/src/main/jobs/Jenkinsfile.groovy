@@ -23,7 +23,6 @@ Params params = Params.load(
     new ParamDef('withoutSvnCheckout', Boolean.class, Boolean.FALSE, 'Aktualisieren des Workspace deaktivieren'),
     new ParamDef('withoutClean', Boolean.class, Boolean.FALSE, 'Gradle clean deaktivieren'),
     new ParamDef('withoutBuild', Boolean.class, Boolean.FALSE, 'Bauen der Komponenten und statische Analysen deaktivieren'),
-    new ParamDef('withoutCheckBuildscripts', Boolean.class, Boolean.FALSE, 'Prüfung der Buildskripte deaktivieren'),
     new ParamDef('withoutStaticAnalysis', Boolean.class, Boolean.FALSE, 'Ausgabe der statischen Analyseergebnisse deaktivieren'),
     new ParamDef('withoutCompileManual', Boolean.class, Boolean.FALSE, 'Erstellung des Handbuchs deaktivieren'),
     new ParamDef('withoutGwtCompile', Boolean.class, Boolean.FALSE, 'GWT-Erstellung deaktivieren'),
@@ -107,8 +106,9 @@ node(params.get('node')) {
 
                     parallel(
                         'clean': {
-						if (!params.isSet('withoutClean'))
-                                callGradle(0, 'clean')
+							if (!params.isSet('withoutClean')) {
+								callGradle(0, 'clean')
+							}
                         }
                     )
 
@@ -117,66 +117,52 @@ node(params.get('node')) {
 
                             def tasks = []
 
-						if (!params.isSet('withoutCheckBuildscripts')) {
-                                tasks.add('checkBuildscripts')
-                            }
+							if (!params.isSet('withoutStaticAnalysis')) {
+								tasks.add('checkBuildscripts')
+							}
 
-						if (!params.isSet('withoutBuild')) {
-                                tasks.add('buildAllComponents')
-							if (params.isSet('withoutGwtCompile')) {
-                                    tasks.add('-x compileGwt')
-                                    tasks.add('-x test')
-                                }
-                            }
+							if (!params.isSet('withoutBuild')) {
+								tasks.add('buildAllComponents')
+								if (params.isSet('withoutGwtCompile')) {
+										tasks.add('-x compileGwt')
+										tasks.add('-x test')
+								}
 
-                            if (!tasks.isEmpty()) {
-                                callGradle(0, tasks.join(' '))
-                            } else {
-							println "No gradle tasks to execute"
-                            }
-                        }
+								if (!tasks.isEmpty()) {
+									callGradle(0, tasks.join(' '))
+								} else {
+									println "No gradle tasks to execute"
+								}
+							}
+						}
                     )
                 }
 
                 stage ('Get Results of Static Analysis') {
 
-                    if(WithStaticAnalysis.toBoolean()) {
+                    if(!params.isSet('withoutStaticAnalysis')) {
                         parallel(
-
                             'Get Unit Test Results': {
-							if (!params.isSet('withoutStaticAnalysis')) {
-                                getUnit(StaticAnalysisType.JUNIT)
-							}
+								getUnit(StaticAnalysisType.JUNIT)
                             },
                             'Get CodeNarc Results': {
-							if (!params.isSet('withoutCheckBuildscripts')) {
-                                getAsArtefact(StaticAnalysisType.CODENARC)
-							}
+								getAsArtefact(StaticAnalysisType.CODENARC)
                             },
                             'Get Findbugs Results': {
-							if (!params.isSet('withoutStaticAnalysis')) {
 								getFindbugs(StaticAnalysisType.FINDBUGS, params.isSet('resetFindBugsLimits'))
-							}
                             },
                             'Get Checkstyle Results': {
-							if (!params.isSet('withoutStaticAnalysis')) {
 								getCheckstyle(StaticAnalysisType.CHECKSTYLE, params.isSet('resetCheckstyleLimits'))
-							}
                             },
                             'Get Classycle Results': {
-							if (!params.isSet('withoutStaticAnalysis')) {
-                                getAsArtefact(StaticAnalysisType.CLASSYCLE)
-							}
+								getAsArtefact(StaticAnalysisType.CLASSYCLE)
                             },
                             'Get Task Scanner Results': {
-							if (!params.isSet('withoutStaticAnalysis')) {
-                                getTodos(StaticAnalysisType.TODOS)
-							}
+								getTodos(StaticAnalysisType.TODOS)
                             },
                             'Get Compiler Warnings': {
-							if (!params.isSet('withoutStaticAnalysis')) {
-                                getCompilerWarnings(StaticAnalysisType.WARNINGS)
-                            }
+								getCompilerWarnings(StaticAnalysisType.WARNINGS)
+							}
 						)
                     }
                 }
@@ -219,7 +205,7 @@ node(params.get('node')) {
 						}
 					},
 					'Systemtests local' : {
-						if (!params.isSet('withoutSystemtestLocal')) {
+						if (!params.isSet('withoutSystemTestsLinux')) {
 							step([$class               : 'TestrunnerBuilder',
 								  applicationProperties: "${TESTRUNNER_APPLICATION}",
 								  assertionsEnabled    : true,
@@ -239,7 +225,7 @@ node(params.get('node')) {
 						}
 					},
 					'Systemtests Plugins' : {
-						if (!params.isSet('withoutSystemtestPlugins')) {
+						if (!params.isSet('withoutPluginTestsLinux')) {
 							step([$class               : 'TestrunnerBuilder',
 								  applicationProperties: "${TESTRUNNER_APPLICATION}",
 								  assertionsEnabled    : true,
