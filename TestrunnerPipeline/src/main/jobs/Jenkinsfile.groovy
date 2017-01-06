@@ -603,7 +603,7 @@ enum StaticAnalysisType {
 }
 
 def mailToCommitters() {
-	emailext to: 'as@schrell.de', // to darf nicht leer oder null sein
+	emailext to: 'as@set.de', // to darf nicht leer oder null sein
 			// recipientProviders: [[$class: 'CulpritsRecipientProvider'], [$class: 'DevelopersRecipientProvider']],
 			subject: "Pipeline CheckCommit-Anteil ${currentBuild.result == null ? 'SUCCESSFUL' : currentBuild.result}",
 			body: "Siehe ${env.BUILD_URL}"
