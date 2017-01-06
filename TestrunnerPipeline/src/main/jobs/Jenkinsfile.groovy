@@ -46,6 +46,22 @@ if (params == null) {
     return this
 }
 
+class StopBuildException extends Exception implements Serializable {
+	
+	public StopBuildException(String s) {
+		super(s)
+	}
+	
+}
+
+def continueCheck() {
+	echo "Checking Build-Result: " + currentBuild.result
+	if (currentBuild.result != null) {
+		echo "stopping Pipeline"
+		throw new StopBuildException('Test')
+	}
+}
+
 /**
  * Die eigentliche Pipeline.
  *
@@ -102,6 +118,8 @@ node(params.get('node')) {
                     )
                 }
 
+				continueCheck()
+					
                 stage ('Build Components and Static Analysis') {
 
                     parallel(
@@ -138,6 +156,8 @@ node(params.get('node')) {
                     )
                 }
 
+				continueCheck()
+					
                 stage ('Get Results of Static Analysis') {
 
                     if(!params.isSet('withoutStaticAnalysis')) {
@@ -167,6 +187,8 @@ node(params.get('node')) {
                     }
                 }
 
+			} catch (StopBuildException e) {
+                throw e
 			} catch (Exception e) {
                 currentBuild.result = 'FAILED'
                 throw e
@@ -174,6 +196,8 @@ node(params.get('node')) {
                 notifications('CheckCommit Phases')
             }
 
+			continueCheck()
+					
 			stage ('Systemtests local and compile Manual') {
 
 				parallel(
@@ -267,6 +291,8 @@ node(params.get('node')) {
 				)
 			}
 
+			continueCheck()
+					
             stage('Systemtests Remote') {
                 milestone()
                 parallel(
@@ -281,6 +307,8 @@ node(params.get('node')) {
                 )
             }
 
+			continueCheck()
+					
             stage('UnitTests Remote') {
                 milestone()
                 parallel(
@@ -294,6 +322,8 @@ node(params.get('node')) {
                 )
             }
 
+			continueCheck()
+					
             stage('Auslieferung vorbereiten') {
                 milestone()
                 parallel(
@@ -309,6 +339,9 @@ node(params.get('node')) {
                 )
             }
 
+        } catch (StopBuildException e) {
+			echo "Stopping..."
+			// swallow Esception here
         } catch (Exception e) {
             currentBuild.result = 'FAILED'
             throw e
