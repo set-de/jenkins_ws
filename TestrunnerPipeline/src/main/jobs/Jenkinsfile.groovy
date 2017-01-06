@@ -177,9 +177,8 @@ node(NodeZuordnung) {
 							sh "rm -rf '$env.WORKSPACE/Workspace/Buildresults/Handbuch'"
 							sh "cp -R '$env.WORKSPACE/Workspace/POSY-Online-Hilfe/POSY-MailManagement/Output/jenkins' '$env.WORKSPACE/Workspace/Buildresults/Handbuch'"
 
-							dir('Workspace/rootProject') {
-								callGradle(0, "injectManual")
-							}
+							callGradle(0, "injectManual")
+
 						} else {
 							println "Skipping compile manual"
 						}
