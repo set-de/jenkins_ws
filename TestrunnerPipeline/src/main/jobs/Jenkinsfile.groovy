@@ -23,7 +23,6 @@ Params params = Params.load(
     new ParamDef('withoutSvnCheckout', Boolean.class, Boolean.FALSE, 'Aktualisieren des Workspace deaktivieren'),
     new ParamDef('withoutClean', Boolean.class, Boolean.FALSE, 'Gradle clean deaktivieren'),
     new ParamDef('withoutBuild', Boolean.class, Boolean.FALSE, 'Bauen der Komponenten und statische Analysen deaktivieren'),
-    new ParamDef('withoutCheckBuildscripts', Boolean.class, Boolean.FALSE, 'Prüfung der Buildskripte deaktivieren'),
     new ParamDef('withoutStaticAnalysis', Boolean.class, Boolean.FALSE, 'Ausgabe der statischen Analyseergebnisse deaktivieren'),
     new ParamDef('withoutCompileManual', Boolean.class, Boolean.FALSE, 'Erstellung des Handbuchs deaktivieren'),
     new ParamDef('withoutGwtCompile', Boolean.class, Boolean.FALSE, 'GWT-Erstellung deaktivieren'),
@@ -47,6 +46,22 @@ if (params == null) {
     return this
 }
 
+class StopBuildException extends Exception implements Serializable {
+	
+	public StopBuildException(String s) {
+		super(s)
+	}
+	
+}
+
+def continueCheck() {
+	echo "Checking Build-Result: " + currentBuild.result
+	if (currentBuild.result != null) {
+		echo "stopping Pipeline"
+		throw new StopBuildException('Test')
+	}
+}
+
 /**
  * Die eigentliche Pipeline.
  *
@@ -59,8 +74,11 @@ node(params.get('node')) {
 
     timestamps {
 
-		try {
-			nodeSetUp()
+        try {
+			
+            try {
+				
+                nodeSetUp()
 
 			milestone label: 'Beginn'
 			//hier wird mit Label gearbeitet, damit mehrere parallele Laeufe moeglich sind
@@ -68,134 +86,123 @@ node(params.get('node')) {
 			milestone label: 'CheckCommit-Lock erhalten'
 			stage('Checkout') {
 
-				parallel(
-					'SVN-Checkout': {
-						// Wenn angefordert erstmal ein cleanup auf dem SVN machen
+                    parallel(
+                        'SVN-Checkout': {
+                            // Wenn angefordert erstmal ein cleanup auf dem SVN machen
 						if (!params.isSet('withoutSvnCleanup')) {
-							run "${env.SVN_BINARY} cleanup Workspace"
-							run "${env.SVN_BINARY} cleanup program"
-						} else {
-							println "Skipping SVN-Cleanup"
-						}
+                                run "${env.SVN_BINARY} cleanup Workspace"
+                                run "${env.SVN_BINARY} cleanup program"
+                            } else {
+                                println "Skipping SVN-Cleanup"
+                            }
 
-						// Dann aus dem SVN Workspace und program auschecken
+                            // Dann aus dem SVN Workspace und program auschecken
 						if (!params.isSet('withoutSvnCheckout')) {
-							checkout poll: true, scm: [
-								$class          : 'SubversionSCM',
-								locations       : [
-									[credentialsId: 'jenkins', depthOption: 'infinity', ignoreExternalsOption: true,
-									 local        : 'Workspace',
-									 remote       : "https://svn.intranet.set.de/svn/POSY-Redesign/${Branch}/Workspace@${Revision}"],
-									[credentialsId: 'jenkins', depthOption: 'infinity', ignoreExternalsOption: true,
-									 local        : 'program',
-									 remote       : "https://svn.intranet.set.de/svn/POSY-Redesign/${Branch}/program@${Revision}"]],
-									// workspaceUpdater: [$class: 'UpdateWithCleanUpdater']
-							]
-						} else {
-							println "Skipping SVN-Checkout"
-						}
+                                checkout poll: true, scm: [
+                                    $class          : 'SubversionSCM',
+                                    locations       : [
+                                        [credentialsId: 'jenkins', depthOption: 'infinity', ignoreExternalsOption: true,
+                                         local        : 'Workspace',
+                                         remote       : "https://svn.intranet.set.de/svn/POSY-Redesign/${Branch}/Workspace@${Revision}"],
+                                        [credentialsId: 'jenkins', depthOption: 'infinity', ignoreExternalsOption: true,
+                                         local        : 'program',
+                                         remote       : "https://svn.intranet.set.de/svn/POSY-Redesign/${Branch}/program@${Revision}"]],
+                                        // workspaceUpdater: [$class: 'UpdateWithCleanUpdater']
+                                ]
+                            } else {
+                                println "Skipping SVN-Checkout"
+                            }
 
-						// Nun die SVN-Informationen besorgen und als Umgebungsvariablen setzen
-						env.SVN_REVISION = getSvnRev('Workspace')
-						println "SVN_REVISION: ${env.SVN_REVISION}"
-						env.SVN_URL = getSvnUrl('Workspace')
-						println "SVN_URL: ${env.SVN_URL}"
-					}
-				)
-			}
+                            // Nun die SVN-Informationen besorgen und als Umgebungsvariablen setzen
+                            env.SVN_REVISION = getSvnRev('Workspace')
+                            println "SVN_REVISION: ${env.SVN_REVISION}"
+                            env.SVN_URL = getSvnUrl('Workspace')
+                            println "SVN_URL: ${env.SVN_URL}"
+                        }
+                    )
+                }
 
-			stage ('Build Components and Static Analysis') {
+				continueCheck()
+					
+                stage ('Build Components and Static Analysis') {
 
-				parallel(
-					'clean': {
-						if (!params.isSet('withoutClean'))
-							callGradle(0, 'clean')
-					}
-				)
+                    parallel(
+                        'clean': {
+							if (!params.isSet('withoutClean')) {
+								callGradle(0, 'clean')
+							}
+                        }
+                    )
 
-				parallel(
-					'build': {
+                    parallel(
+                        'build': {
 
-						def tasks = []
+                            def tasks = []
 
-						if (!params.isSet('withoutCheckBuildscripts')) {
-							tasks.add('checkBuildscripts')
-						}
+							if (!params.isSet('withoutStaticAnalysis')) {
+								tasks.add('checkBuildscripts')
+							}
 
-						if (!params.isSet('withoutBuild')) {
-							tasks.add('buildAllComponents')
-							if (params.isSet('withoutGwtCompile')) {
-								tasks.add('-x compileGwt')
-                                tasks.add('-x test')
+							if (!params.isSet('withoutBuild')) {
+								tasks.add('buildAllComponents')
+								if (params.isSet('withoutGwtCompile')) {
+										tasks.add('-x compileGwt')
+										tasks.add('-x test')
+								}
+
+								if (!tasks.isEmpty()) {
+									callGradle(0, tasks.join(' '))
+								} else {
+									println "No gradle tasks to execute"
+								}
 							}
 						}
+                    )
+                }
 
-						if (!tasks.isEmpty()) {
-							callGradle(0, tasks.join(' '))
-						} else {
-							println "No gradle tasks to execute"
-						}
-					}
-				)
-			}
+				continueCheck()
+					
+                stage ('Get Results of Static Analysis') {
 
-			stage ('Get Results of Static Analysis') {
-
-				try {
-					parallel(
-
-						'Get Unit Test Results': {
-							if (!params.isSet('withoutStaticAnalysis')) {
+                    if(!params.isSet('withoutStaticAnalysis')) {
+                        parallel(
+                            'Get Unit Test Results': {
 								getUnit(StaticAnalysisType.JUNIT)
-							}
-						},
-						'Get CodeNarc Results': {
-							if (!params.isSet('withoutCheckBuildscripts')) {
+                            },
+                            'Get CodeNarc Results': {
 								getAsArtefact(StaticAnalysisType.CODENARC)
-							}
-						},
-						'Get Findbugs Results': {
-							if (!params.isSet('withoutStaticAnalysis')) {
+                            },
+                            'Get Findbugs Results': {
 								getFindbugs(StaticAnalysisType.FINDBUGS, params.isSet('resetFindBugsLimits'))
-							}
-						},
-						'Get Checkstyle Results': {
-							if (!params.isSet('withoutStaticAnalysis')) {
+                            },
+                            'Get Checkstyle Results': {
 								getCheckstyle(StaticAnalysisType.CHECKSTYLE, params.isSet('resetCheckstyleLimits'))
-							}
-						},
-						'Get Classycle Results': {
-							if (!params.isSet('withoutStaticAnalysis')) {
+                            },
+                            'Get Classycle Results': {
 								getAsArtefact(StaticAnalysisType.CLASSYCLE)
-							}
-						},
-						'Get Task Scanner Results': {
-							if (!params.isSet('withoutStaticAnalysis')) {
+                            },
+                            'Get Task Scanner Results': {
 								getTodos(StaticAnalysisType.TODOS)
-							}
-						},
-						'Get Compiler Warnings': {
-							if (!params.isSet('withoutStaticAnalysis')) {
+                            },
+                            'Get Compiler Warnings': {
 								getCompilerWarnings(StaticAnalysisType.WARNINGS)
 							}
-						}
-					)
-				} catch (Exception e) {
-					currentBuild.result = 'FAILED'
-					throw e
-				} finally {
-					parallel (
-						'Send Mail': {
-							mailToCommitters()
-						},
-						'HipChat': {
-							jabber('CheckCommit Phases')
-						}
-					)
-				}
-			}
+						)
+                    }
+                }
 			}
 
+			} catch (StopBuildException e) {
+                throw e
+			} catch (Exception e) {
+                currentBuild.result = 'FAILED'
+                throw e
+            } finally {
+                notifications('CheckCommit Phases')
+            }
+
+			continueCheck()
+					
 			lock(inversePrecedence: true, quantity: 1, resource: env.JOB_BASE_NAME + '_Systemtests-Local-Lock') {
 			milestone label: 'Systemtests-Local-Lock erhalten'
 			stage ('Systemtests local, Compile Manual und Unit-Tests remote') {
@@ -229,7 +236,7 @@ node(params.get('node')) {
 						}
 					},
 					'Systemtests local' : {
-						if (!params.isSet('withoutSystemtestLocal')) {
+						if (!params.isSet('withoutSystemTestsLinux')) {
 							step([$class               : 'TestrunnerBuilder',
 								  applicationProperties: "${TESTRUNNER_APPLICATION}",
 								  assertionsEnabled    : true,
@@ -249,7 +256,7 @@ node(params.get('node')) {
 						}
 					},
 					'Systemtests Plugins' : {
-						if (!params.isSet('withoutSystemtestPlugins')) {
+						if (!params.isSet('withoutPluginTestsLinux')) {
 							step([$class               : 'TestrunnerBuilder',
 								  applicationProperties: "${TESTRUNNER_APPLICATION}",
 								  assertionsEnabled    : true,
@@ -300,6 +307,7 @@ node(params.get('node')) {
 			}
 			}
 
+			continueCheck()
 			lock(inversePrecedence: true, quantity: 1, resource: env.JOB_BASE_NAME + '_Systemtests-Remote-Lock') {
 			milestone label: 'Systemtests-Remote-Lock erhalten'
 			stage('Systemtests Remote') {
@@ -317,10 +325,10 @@ node(params.get('node')) {
 			}
 			}
 
+			continueCheck()
 			lock(inversePrecedence: true, quantity: 1, resource: env.JOB_BASE_NAME + '_Deploy-Lock') {
 			milestone label: 'Deploy-Lock erhalten'
 			stage('Auslieferung vorbereiten') {
-				milestone()
 				parallel(
 					'Deployment (optional)': {
 						if (currentBuild.description != null && currentBuild.description.contains("Auslieferbereit")) {
@@ -335,22 +343,29 @@ node(params.get('node')) {
 			}
 			}
 
-		} catch (Exception e) {
-			currentBuild.result = 'FAILED'
-			throw e
-		} finally {
-			parallel (
-				'Send Mail': {
-					mailToCommitters()
-				},
-				'HipChat': {
-					jabber('Full Pipeline')
-				}
-			)
+        } catch (StopBuildException e) {
+			echo "Stopping..."
+			// swallow Esception here
+        } catch (Exception e) {
+            currentBuild.result = 'FAILED'
+            throw e
+        } finally {
+            notifications('Full Pipeline')
         }
         
     }
 
+}
+
+def notifications(String info) {
+	parallel (
+		'Send Mail': {
+			mailToComitters(info)
+		},
+		'HipChat': {
+			chat(info)
+		}
+	)
 }
 
 /**
@@ -625,39 +640,39 @@ enum StaticAnalysisType {
     
 }
 
-def mailToCommitters() {
-	emailext to: 'as@set.de', // to darf nicht leer oder null sein
-			// recipientProviders: [[$class: 'CulpritsRecipientProvider'], [$class: 'DevelopersRecipientProvider']],
-			subject: "Pipeline CheckCommit-Anteil ${currentBuild.result == null ? 'SUCCESSFUL' : currentBuild.result}",
-			body: "Siehe ${env.BUILD_URL}"
+def mailToComitters(String info) {
+    emailext to: 'as@set.de', // to darf nicht leer oder null sein
+            // recipientProviders: [[$class: 'CulpritsRecipientProvider'], [$class: 'DevelopersRecipientProvider']],
+            subject: "${info} ${currentBuild.result == null ? 'SUCCESSFUL' : currentBuild.result}",
+            body: "Siehe ${env.BUILD_URL}"
 }
 
-def jabber(String info) {
-	def col = 'RED'
-	def state = 'UNDEFINED'
-	switch (currentBuild.result) {
-		case 'UNSTABLE':
-			col = 'YELLOW'
-			state = 'UNSTABLE'
-			break
-		case null:
-		case 'SUCCESS':
-			col = 'GREEN'
-			state = 'SUCCESSFUL'
-			break
-		case 'FAILURE':
-			col = 'RED'
-			state = 'FAILURE'
-			break
-		case 'ABORTED':
-			col = 'RED'
-			state = 'ABORTED'
-			break
-	}
-	echo "RESULT: ${currentBuild.result}"
-	hipchatSend (color: col, notify: true,
-		message: "${info} '${env.JOB_NAME} [${env.BUILD_NUMBER}]' ${state} (<a href=\"${env.BUILD_URL}\">View in Jenkins</a>)"
-	)
+def chat(String info) {
+    def col = 'RED'
+    def state = 'UNDEFINED'
+    switch (currentBuild.result) {
+        case 'UNSTABLE':
+            col = 'YELLOW'
+            state = 'UNSTABLE'
+            break
+        case null:
+        case 'SUCCESS':
+            col = 'GREEN'
+            state = 'SUCCESSFUL'
+            break
+        case 'FAILURE':
+            col = 'RED'
+            state = 'FAILURE'
+            break
+        case 'ABORTED':
+            col = 'RED'
+            state = 'ABORTED'
+            break
+    }
+    echo "RESULT: ${currentBuild.result}"
+    hipchatSend (color: col, notify: true,
+        message: "${info} '${env.JOB_NAME} [${env.BUILD_NUMBER}]' ${state} (<a href=\"${env.BUILD_URL}\">View in Jenkins</a>)"
+    )
 }
 
 class ParamDef implements Serializable {
