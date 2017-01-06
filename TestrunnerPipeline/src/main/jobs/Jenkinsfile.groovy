@@ -16,6 +16,17 @@ String testrunnerUser = 'H1'
 svn_properties = [:]
 
 /**
+ * Laden der Parameter (und gleichzeitig Uebersicht ueber die moeglichen Parameter).
+ */
+Params params = Params.load(
+    steps,
+    FurtherPipelineParams.toString(),
+    new ParamDef('help', Boolean.class, Boolean.FALSE, 'gibt die moeglichen Parameter aus und beendet danach den Build'),
+    new ParamDef('resetCheckstyleLimits', Boolean.class, Boolean.FALSE, 'deaktiviert den Vergleich der Anzahl der Checkstyle-Verstoesse und setzt den Vergleichswert zurueck'),
+    new ParamDef('resetFindBugsLimits', Boolean.class, Boolean.FALSE, 'deaktiviert den Vergleich der Anzahl der FindBugs-Verstoesse und setzt den Vergleichswert zurueck')
+)
+
+/**
  * Die eigentliche Pipeline.
  *
  * Zur besseren Benennung in der "Pipeline-Steps"-Ansicht werden auch einfache Tasks in ein <code>parallel</code>
@@ -639,6 +650,120 @@ def jabber(String info) {
 	hipchatSend (color: col, notify: true,
 		message: "${info} '${env.JOB_NAME} [${env.BUILD_NUMBER}]' ${state} (<a href=\"${env.BUILD_URL}\">View in Jenkins</a>)"
 	)
+}
+
+class ParamDef implements Serializable {
+    private String name;
+    private Class<?> type;
+    private Object defaultValue;
+    private String description;
+    
+    public ParamDef(String name, Class<?> type, Object defaultValue, String description) {
+        this.name = name
+        this.type = type
+        this.defaultValue = defaultValue
+        this.description = description
+    }
+    
+    public boolean matches(String param) {
+        return param.equals(this.name) || param.startsWith(this.name + '=')
+    }
+    
+    public Object parse(String param, Set<String> messages) {
+        if (param.equals(this.name)) {
+            if (this.type.equals(Boolean.class)) {
+                return Boolean.TRUE
+            } else {
+                messages.add('Fuer Nicht-Boolean-Parameter muss ein Wert angegeben werden ' + param)
+                return Boolean.FALSE
+            }
+        } else {
+            String value = param.substring(this.name.length() + 1)
+            if (this.type.equals(Boolean.class)) {
+                if (!value.matches('true|false')) {
+                    messages.add('Ungueltiger Wert fuer Boolean-Parameter: ' + param)
+                }
+                return Boolean.parseBoolean(value)
+            } else {
+                return value
+            }
+        }
+        return null
+    }
+}
+
+class Params implements Serializable {
+    private Map<String, Object> params = new TreeMap<>()
+
+    public static Params load(def steps, String unparsed, ParamDef... possibleParams) {
+        String[] parts = unparsed.split(' ')
+        Params ret = new Params()
+        Set<ParamDef> found = new HashSet<>()
+        Set<String> messages = new LinkedHashSet<>()
+        for (int i = 0; i < parts.length; i++) {
+            String pt = parts[i].trim()
+            if (pt.isEmpty()) {
+                continue;
+            }
+            handleParam(pt, possibleParams, ret, found, messages)
+        }
+        for (int i = 0; i < possibleParams.length; i++) {
+            ParamDef pd = possibleParams[i]
+            if (!found.contains(pd)) {
+                ret.params.put(pd.name, pd.defaultValue)
+            }
+        }
+        if (!messages.isEmpty()) {
+            myEcho(steps, 'Ungueltige Parameter!\n' + messages)
+            printHelp(possibleParams, steps)
+            throw new RuntimeException('Ungueltige Parameter')
+        }
+        if (ret.isSet('help')) {
+            printHelp(possibleParams, steps)
+            throw new RuntimeException('Hilfe ausgeloest')
+        }
+        myEcho(steps, 'Loaded parameters: ' + ret.params)
+        return ret
+    }
+    
+    private static void handleParam(
+        String param, ParamDef[] possibleParams, Params ret, Set<ParamDef> found, Set<String> messages) {
+        
+        boolean valid = false
+        for (int i = 0; i < possibleParams.length; i++) {
+            ParamDef cur = possibleParams[i]
+            if (cur.matches(param)) {
+                valid = true
+                if (found.contains(cur)) {
+                    messages.add('Doppelter Wert fuer den Parameter ' + cur.name)
+                }
+                found.add(cur)
+                ret.params.put(cur.name, cur.parse(param, messages))
+            }
+        }
+        if (!valid) {
+            messages.add('Parametername ungueltig: ' + param)
+        }
+    }
+    
+    private static void printHelp(ParamDef[] possibleParams, def steps) {
+        String msg = 'Moegliche Build-Parameter:\n'
+        for (int i = 0; i < possibleParams.length; i++) {
+            ParamDef pd = possibleParams[i]
+            msg += 'Name: ' + pd.name + ', Typ: ' + pd.type + ', Standardwert: ' +  pd.defaultValue + ', Beschreibung: ' + pd.description + '\n'
+        }
+        myEcho(steps, msg)
+    }
+    
+    private static void myEcho(def steps, String message) {
+        //direkter echo-Aufruf nicht moeglich, weil eigene Klasse.
+        //  Und println geht auch nicht, vermutlich weil ausserhalb eines node
+        steps.invokeMethod('echo', message)
+    }
+    
+    public boolean isSet(String flagName) {
+        return this.params.get(flagName)
+    }
 }
 
 // Wird benötigt, damit das Load (aus dem Jenkins Job, das diese Pipeline läd) nicht hängen bleibt.
