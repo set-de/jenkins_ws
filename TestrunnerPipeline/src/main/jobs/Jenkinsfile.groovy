@@ -85,6 +85,7 @@ node(NodeZuordnung) {
 							tasks.add('buildAllComponents')
 							if (!WithGwtCompile.toBoolean()) {
 								tasks.add('-x compileGwt')
+                                tasks.add('-x test')
 							}
 						}
 
@@ -100,44 +101,31 @@ node(NodeZuordnung) {
 			stage ('Get Results of Static Analysis') {
 
 				try {
-					parallel(
-
-						'Get Unit Test Results': {
-							if (WithStaticAnalysis.toBoolean()) {
-								getUnit(StaticAnalysisType.JUNIT)
-							}
-						},
-						'Get CodeNarc Results': {
-							if (WithCheckBuildscripts.toBoolean()) {
-								getAsArtefact(StaticAnalysisType.CODENARC)
-							}
-						},
-						'Get Findbugs Results': {
-							if (WithStaticAnalysis.toBoolean()) {
-								getFindbugs(StaticAnalysisType.FINDBUGS, ResetFindbugsLimits.toBoolean())
-							}
-						},
-						'Get Checkstyle Results': {
-							if (WithStaticAnalysis.toBoolean()) {
-								getCheckstyle(StaticAnalysisType.CHECKSTYLE, ResetCheckstyleLimits.toBoolean())
-							}
-						},
-						'Get Classycle Results': {
-							if (WithStaticAnalysis.toBoolean()) {
-								getAsArtefact(StaticAnalysisType.CLASSYCLE)
-							}
-						},
-						'Get Task Scanner Results': {
-							if (WithStaticAnalysis.toBoolean()) {
-								getTodos(StaticAnalysisType.TODOS)
-							}
-						},
-						'Get Compiler Warnings': {
-							if (WithStaticAnalysis.toBoolean()) {
-								getCompilerWarnings(StaticAnalysisType.WARNINGS)
-							}
-						}
-					)
+					if(WithStaticAnalysis.toBoolean()) {
+						parallel(
+								'Get Unit Test Results': {
+									getUnit(StaticAnalysisType.JUNIT)
+								},
+								'Get CodeNarc Results': {
+									getAsArtefact(StaticAnalysisType.CODENARC)
+								},
+								'Get Findbugs Results': {
+									getFindbugs(StaticAnalysisType.FINDBUGS, ResetFindbugsLimits.toBoolean())
+								},
+								'Get Checkstyle Results': {
+									getCheckstyle(StaticAnalysisType.CHECKSTYLE, ResetCheckstyleLimits.toBoolean())
+								},
+								'Get Classycle Results': {
+									getAsArtefact(StaticAnalysisType.CLASSYCLE)
+								},
+								'Get Task Scanner Results': {
+									getTodos(StaticAnalysisType.TODOS)
+								},
+								'Get Compiler Warnings': {
+									getCompilerWarnings(StaticAnalysisType.WARNINGS)
+								}
+						)
+					}
 				} catch (Exception e) {
 					currentBuild.result = 'FAILED'
 					throw e
