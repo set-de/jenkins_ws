@@ -22,124 +22,120 @@ node(NodeZuordnung) {
 
     timestamps {
 
-		try {
-			nodeSetUp()
+        try {
+			
+            try {
+				
+                nodeSetUp()
 
-			stage('Checkout') {
+                stage('Checkout') {
 
-				parallel(
-					'SVN-Checkout': {
-						// Wenn angefordert erstmal ein cleanup auf dem SVN machen
-						if (WithSvnCleanup.toBoolean()) {
-							run "${env.SVN_BINARY} cleanup Workspace"
-							run "${env.SVN_BINARY} cleanup program"
-						} else {
-							println "Skipping SVN-Cleanup"
-						}
+                    parallel(
+                        'SVN-Checkout': {
+                            // Wenn angefordert erstmal ein cleanup auf dem SVN machen
+                            if (WithSvnCleanup.toBoolean()) {
+                                run "${env.SVN_BINARY} cleanup Workspace"
+                                run "${env.SVN_BINARY} cleanup program"
+                            } else {
+                                println "Skipping SVN-Cleanup"
+                            }
 
-						// Dann aus dem SVN Workspace und program auschecken
-						if (WithCheckout.toBoolean()) {
-							checkout poll: true, scm: [
-								$class          : 'SubversionSCM',
-								locations       : [
-									[credentialsId: 'jenkins', depthOption: 'infinity', ignoreExternalsOption: true,
-									 local        : 'Workspace',
-									 remote       : "https://svn.intranet.set.de/svn/POSY-Redesign/${Branch}/Workspace@${Revision}"],
-									[credentialsId: 'jenkins', depthOption: 'infinity', ignoreExternalsOption: true,
-									 local        : 'program',
-									 remote       : "https://svn.intranet.set.de/svn/POSY-Redesign/${Branch}/program@${Revision}"]],
-									// workspaceUpdater: [$class: 'UpdateWithCleanUpdater']
-							]
-						} else {
-							println "Skipping SVN-Checkout"
-						}
+                            // Dann aus dem SVN Workspace und program auschecken
+                            if (WithCheckout.toBoolean()) {
+                                checkout poll: true, scm: [
+                                    $class          : 'SubversionSCM',
+                                    locations       : [
+                                        [credentialsId: 'jenkins', depthOption: 'infinity', ignoreExternalsOption: true,
+                                         local        : 'Workspace',
+                                         remote       : "https://svn.intranet.set.de/svn/POSY-Redesign/${Branch}/Workspace@${Revision}"],
+                                        [credentialsId: 'jenkins', depthOption: 'infinity', ignoreExternalsOption: true,
+                                         local        : 'program',
+                                         remote       : "https://svn.intranet.set.de/svn/POSY-Redesign/${Branch}/program@${Revision}"]],
+                                        // workspaceUpdater: [$class: 'UpdateWithCleanUpdater']
+                                ]
+                            } else {
+                                println "Skipping SVN-Checkout"
+                            }
 
-						// Nun die SVN-Informationen besorgen und als Umgebungsvariablen setzen
-						env.SVN_REVISION = getSvnRev('Workspace')
-						println "SVN_REVISION: ${env.SVN_REVISION}"
-						env.SVN_URL = getSvnUrl('Workspace')
-						println "SVN_URL: ${env.SVN_URL}"
-					}
-				)
-			}
+                            // Nun die SVN-Informationen besorgen und als Umgebungsvariablen setzen
+                            env.SVN_REVISION = getSvnRev('Workspace')
+                            println "SVN_REVISION: ${env.SVN_REVISION}"
+                            env.SVN_URL = getSvnUrl('Workspace')
+                            println "SVN_URL: ${env.SVN_URL}"
+                        }
+                    )
+                }
 
-			stage ('Build Components and Static Analysis') {
+                stage ('Build Components and Static Analysis') {
 
-				parallel(
-					'clean': {
-						if (WithClean.toBoolean())
-							callGradle(0, 'clean')
-					}
-				)
+                    parallel(
+                        'clean': {
+                            if (WithClean.toBoolean())
+                                callGradle(0, 'clean')
+                        }
+                    )
 
-				parallel(
-					'build': {
+                    parallel(
+                        'build': {
 
-						def tasks = []
+                            def tasks = []
 
-						if (WithCheckBuildscripts.toBoolean()) {
-							tasks.add('checkBuildscripts')
-						}
+                            if (WithCheckBuildscripts.toBoolean()) {
+                                tasks.add('checkBuildscripts')
+                            }
 
-						if (WithBuild.toBoolean()) {
-							tasks.add('buildAllComponents')
-							if (!WithGwtCompile.toBoolean()) {
-								tasks.add('-x compileGwt')
-                                tasks.add('-x test')
-							}
-						}
+                            if (WithBuild.toBoolean()) {
+                                tasks.add('buildAllComponents')
+                                if (!WithGwtCompile.toBoolean()) {
+                                    tasks.add('-x compileGwt')
+                                    tasks.add('-x test')
+                                }
+                            }
 
-						if (!tasks.isEmpty()) {
-							callGradle(0, tasks.join(' '))
-						} else {
-							println "No grade tasks to execute"
-						}
-					}
-				)
-			}
+                            if (!tasks.isEmpty()) {
+                                callGradle(0, tasks.join(' '))
+                            } else {
+                                println "No grade tasks to execute"
+                            }
+                        }
+                    )
+                }
 
-			stage ('Get Results of Static Analysis') {
+                stage ('Get Results of Static Analysis') {
 
-				try {
-					if(WithStaticAnalysis.toBoolean()) {
-						parallel(
-								'Get Unit Test Results': {
-									getUnit(StaticAnalysisType.JUNIT)
-								},
-								'Get CodeNarc Results': {
-									getAsArtefact(StaticAnalysisType.CODENARC)
-								},
-								'Get Findbugs Results': {
-									getFindbugs(StaticAnalysisType.FINDBUGS, ResetFindbugsLimits.toBoolean())
-								},
-								'Get Checkstyle Results': {
-									getCheckstyle(StaticAnalysisType.CHECKSTYLE, ResetCheckstyleLimits.toBoolean())
-								},
-								'Get Classycle Results': {
-									getAsArtefact(StaticAnalysisType.CLASSYCLE)
-								},
-								'Get Task Scanner Results': {
-									getTodos(StaticAnalysisType.TODOS)
-								},
-								'Get Compiler Warnings': {
-									getCompilerWarnings(StaticAnalysisType.WARNINGS)
-								}
-						)
-					}
-				} catch (Exception e) {
-					currentBuild.result = 'FAILED'
-					throw e
-				} finally {
-					parallel (
-						'Send Mail': {
-							mailToCommitters()
-						},
-						'HipChat': {
-							jabber('CheckCommit Phases')
-						}
-					)
-				}
-			}
+                    if(WithStaticAnalysis.toBoolean()) {
+                        parallel(
+                            'Get Unit Test Results': {
+                                getUnit(StaticAnalysisType.JUNIT)
+                            },
+                            'Get CodeNarc Results': {
+                                getAsArtefact(StaticAnalysisType.CODENARC)
+                            },
+                            'Get Findbugs Results': {
+                                getFindbugs(StaticAnalysisType.FINDBUGS, ResetFindbugsLimits.toBoolean())
+                            },
+                            'Get Checkstyle Results': {
+                                getCheckstyle(StaticAnalysisType.CHECKSTYLE, ResetCheckstyleLimits.toBoolean())
+                            },
+                            'Get Classycle Results': {
+                                getAsArtefact(StaticAnalysisType.CLASSYCLE)
+                            },
+                            'Get Task Scanner Results': {
+                                getTodos(StaticAnalysisType.TODOS)
+                            },
+                            'Get Compiler Warnings': {
+                                getCompilerWarnings(StaticAnalysisType.WARNINGS)
+                            }
+                        )
+                    }
+                }
+
+            } catch (Exception e) {
+                currentBuild.result = 'FAILED'
+                throw e
+            } finally {
+                notifications('CheckCommit Phases')
+            }
 
 			stage ('Systemtests local and compile Manual') {
 
@@ -234,64 +230,68 @@ node(NodeZuordnung) {
 				)
 			}
 
-			stage('Systemtests Remote') {
-				milestone()
-				parallel(
-					'Systemtests Remote': {
-						if (!"${SystemtestTestsysteme}".isEmpty()) {
-							echo 'SystemTests Testsysteme DUMMY...'
-							step([$class: 'JUnitResultArchiver', keepLongStdio: true, testResults: "Workspace/**/build/test-results/*.xml,Workspace/reports/junit/*_system_result.xml"])
-						} else {
-							echo 'Skipping Systemtests'
-						}
-					}
-				)
-			}
+            stage('Systemtests Remote') {
+                milestone()
+                parallel(
+                    'Systemtests Remote': {
+                        if (!"${SystemtestTestsysteme}".isEmpty()) {
+                            echo 'SystemTests Testsysteme DUMMY...'
+                            step([$class: 'JUnitResultArchiver', keepLongStdio: true, testResults: "Workspace/**/build/test-results/*.xml,Workspace/reports/junit/*_system_result.xml"])
+                        } else {
+                            echo 'Skipping Systemtests'
+                        }
+                    }
+                )
+            }
 
-			stage('UnitTests Remote') {
-				milestone()
-				parallel(
-					'Unit-Tests Remote': {
-						if (!"${UnitTestTestsysteme}".isEmpty()) {
-							echo 'UnitTests Testsysteme DUMMY...'
-						} else {
-							echo 'Skipping Unit-Tests'
-						}
-					}
-				)
-			}
+            stage('UnitTests Remote') {
+                milestone()
+                parallel(
+                    'Unit-Tests Remote': {
+                        if (!"${UnitTestTestsysteme}".isEmpty()) {
+                            echo 'UnitTests Testsysteme DUMMY...'
+                        } else {
+                            echo 'Skipping Unit-Tests'
+                        }
+                    }
+                )
+            }
 
-			stage('Auslieferung vorbereiten') {
-				milestone()
-				parallel(
-					'Deployment (optional)': {
-						if (currentBuild.description != null && currentBuild.description.contains("Auslieferbereit")) {
-							build job: 'Auslieferbereit',
-									parameters: [
-											[$class: 'StringParameterValue', name: 'SVN_REVISION', value: "${env.SVN_REVISION}"],
-											[$class: 'StringParameterValue', name: 'BUILD_NUMBER', value: "${env.BUILD_ID}"]],
-									propagate: false, wait: false
-						}
-					}
-				)
-			}
+            stage('Auslieferung vorbereiten') {
+                milestone()
+                parallel(
+                    'Deployment (optional)': {
+                        if (currentBuild.description != null && currentBuild.description.contains("Auslieferbereit")) {
+                            build job: 'Auslieferbereit',
+                                    parameters: [
+                                            [$class: 'StringParameterValue', name: 'SVN_REVISION', value: "${env.SVN_REVISION}"],
+                                            [$class: 'StringParameterValue', name: 'BUILD_NUMBER', value: "${env.BUILD_ID}"]],
+                                    propagate: false, wait: false
+                        }
+                    }
+                )
+            }
 
-		} catch (Exception e) {
-			currentBuild.result = 'FAILED'
-			throw e
-		} finally {
-			parallel (
-				'Send Mail': {
-					mailToCommitters()
-				},
-				'HipChat': {
-					jabber('Full Pipeline')
-				}
-			)
+        } catch (Exception e) {
+            currentBuild.result = 'FAILED'
+            throw e
+        } finally {
+            notifications('Full Pipeline')
         }
         
     }
 
+}
+
+def notifications(String info) {
+	parallel (
+		'Send Mail': {
+			mailToComitters(info)
+		},
+		'HipChat': {
+			chat(info)
+		}
+	)
 }
 
 /**
@@ -566,39 +566,39 @@ enum StaticAnalysisType {
     
 }
 
-def mailToCommitters() {
-	emailext to: 'as@set.de', // to darf nicht leer oder null sein
-			// recipientProviders: [[$class: 'CulpritsRecipientProvider'], [$class: 'DevelopersRecipientProvider']],
-			subject: "Pipeline CheckCommit-Anteil ${currentBuild.result == null ? 'SUCCESSFUL' : currentBuild.result}",
-			body: "Siehe ${env.BUILD_URL}"
+def mailToComitters(String info) {
+    emailext to: 'as@set.de', // to darf nicht leer oder null sein
+            // recipientProviders: [[$class: 'CulpritsRecipientProvider'], [$class: 'DevelopersRecipientProvider']],
+            subject: "${info} ${currentBuild.result == null ? 'SUCCESSFUL' : currentBuild.result}",
+            body: "Siehe ${env.BUILD_URL}"
 }
 
-def jabber(String info) {
-	def col = 'RED'
-	def state = 'UNDEFINED'
-	switch (currentBuild.result) {
-		case 'UNSTABLE':
-			col = 'YELLOW'
-			state = 'UNSTABLE'
-			break
-		case null:
-		case 'SUCCESS':
-			col = 'GREEN'
-			state = 'SUCCESSFUL'
-			break
-		case 'FAILURE':
-			col = 'RED'
-			state = 'FAILURE'
-			break
-		case 'ABORTED':
-			col = 'RED'
-			state = 'ABORTED'
-			break
-	}
-	echo "RESULT: ${currentBuild.result}"
-	hipchatSend (color: col, notify: true,
-		message: "${info} '${env.JOB_NAME} [${env.BUILD_NUMBER}]' ${state} (<a href=\"${env.BUILD_URL}\">View in Jenkins</a>)"
-	)
+def chat(String info) {
+    def col = 'RED'
+    def state = 'UNDEFINED'
+    switch (currentBuild.result) {
+        case 'UNSTABLE':
+            col = 'YELLOW'
+            state = 'UNSTABLE'
+            break
+        case null:
+        case 'SUCCESS':
+            col = 'GREEN'
+            state = 'SUCCESSFUL'
+            break
+        case 'FAILURE':
+            col = 'RED'
+            state = 'FAILURE'
+            break
+        case 'ABORTED':
+            col = 'RED'
+            state = 'ABORTED'
+            break
+    }
+    echo "RESULT: ${currentBuild.result}"
+    hipchatSend (color: col, notify: true,
+        message: "${info} '${env.JOB_NAME} [${env.BUILD_NUMBER}]' ${state} (<a href=\"${env.BUILD_URL}\">View in Jenkins</a>)"
+    )
 }
 
 // Wird benötigt, damit das Load (aus dem Jenkins Job, das diese Pipeline läd) nicht hängen bleibt.
