@@ -1,4 +1,13 @@
+plugins {
+    id 'com.palantir.docker' version '0.9.2'
+    id 'com.palantir.docker-run' version '0.9.2'
+}
+
 apply plugin: 'groovy'
+
+ext {
+    workspace = project.hasProperty('workspace') ? project.property('workspace') : System.getenv('WORKSPACE_HOME')
+}
 
 sourceSets {
     jobs {
@@ -18,4 +27,38 @@ repositories {
 
 dependencies {
     compile 'org.jenkins-ci.plugins:job-dsl-core:1.54'
+}
+
+task installPlugins(type: Copy) {
+    Dependency[] plugins = []
+    project.file("plugins.txt").eachLine {
+         plugins += project.dependencies.module("$it")
+    }
+
+    def pluginConfig = project.configurations.detachedConfiguration(plugins)
+
+    from pluginConfig
+    into "$buildDir/docker/plugins"
+}
+
+task preparePipeline(type: Copy) {
+    from "$projectDir/src"
+    into "$buildDir/docker/src"
+}
+
+ext {
+    imageName = 'de.set/jenkins-ci'
+}
+
+docker {
+    name project.imageName
+    dependsOn installPlugins, preparePipeline
+    dockerfile 'Dockerfile'
+    files "$projectDir/docker"
+}
+
+dockerRun {
+    name 'test-jenkins'
+    image project.imageName
+    ports '8080:8080'
 }
