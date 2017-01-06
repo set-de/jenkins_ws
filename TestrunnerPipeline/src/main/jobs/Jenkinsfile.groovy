@@ -22,6 +22,27 @@ Params params = Params.load(
     steps,
     FurtherPipelineParams.toString(),
     new ParamDef('help', Boolean.class, Boolean.FALSE, 'gibt die moeglichen Parameter aus und beendet danach den Build'),
+    //TODO Standardwert durch sinnvollen Wert ersetzen
+    new ParamDef('node', String.class, 'windows', 'Label zur Auswahl des Knotens'),
+    new ParamDef('withoutSvnCleanup', Boolean.class, Boolean.FALSE, 'Bereinigen des Workspace (SVN) deaktivieren'),
+    new ParamDef('withoutSvnCheckout', Boolean.class, Boolean.FALSE, 'Aktualisieren des Workspace deaktivieren'),
+    new ParamDef('withoutClean', Boolean.class, Boolean.FALSE, 'Gradle clean deaktivieren'),
+    new ParamDef('withoutBuild', Boolean.class, Boolean.FALSE, 'Bauen der Komponenten und statische Analysen deaktivieren'),
+    new ParamDef('withoutCheckBuildscripts', Boolean.class, Boolean.FALSE, 'Prüfung der Buildskripte deaktivieren'),
+    new ParamDef('withoutStaticAnalysis', Boolean.class, Boolean.FALSE, 'Ausgabe der statischen Analyseergebnisse deaktivieren'),
+    new ParamDef('withoutCompileManual', Boolean.class, Boolean.FALSE, 'Erstellung des Handbuchs deaktivieren'),
+    new ParamDef('withoutGwtCompile', Boolean.class, Boolean.FALSE, 'GWT-Erstellung deaktivieren'),
+    new ParamDef('withoutUnitTestsLinux', Boolean.class, Boolean.FALSE, 'Lokale Unit-Tests (auf Linux) deaktivieren'),
+    new ParamDef('withoutUnitTestsAix', Boolean.class, Boolean.FALSE, 'Remote-Unit-Tests auf AIX deaktivieren'),
+    new ParamDef('withoutUnitTestsSolaris', Boolean.class, Boolean.FALSE, 'Remote-Unit-Tests auf Solaris deaktivieren'),
+    new ParamDef('withoutUnitTestsZos', Boolean.class, Boolean.FALSE, 'Remote-Unit-Tests auf z/OS deaktivieren'),
+    new ParamDef('withoutSystemTestsLinux', Boolean.class, Boolean.FALSE, 'Lokale Systemtests (auf Linux) deaktivieren'),
+    new ParamDef('withoutSystemTestsAix', Boolean.class, Boolean.FALSE, 'Remote-Systemtests auf AIX deaktivieren'),
+    new ParamDef('withoutSystemTestsSolaris', Boolean.class, Boolean.FALSE, 'Remote-Systemtests auf Solaris deaktivieren'),
+    new ParamDef('withoutSystemTestsZos', Boolean.class, Boolean.FALSE, 'Remote-Systemtests auf z/OS deaktivieren'),
+    new ParamDef('withoutPluginTestsLinux', Boolean.class, Boolean.FALSE, 'Lokale Plugin-Systemtests (auf Linux) deaktivieren'),
+    new ParamDef('withoutReplicationTestsLinux', Boolean.class, Boolean.FALSE, 'Lokale Replikations-Systemtests (auf Linux) deaktivieren'),
+    new ParamDef('withoutGuiTestsLinux', Boolean.class, Boolean.FALSE, 'Lokale GUI-Tests (auf Linux) deaktivieren'),
     new ParamDef('resetCheckstyleLimits', Boolean.class, Boolean.FALSE, 'deaktiviert den Vergleich der Anzahl der Checkstyle-Verstoesse und setzt den Vergleichswert zurueck'),
     new ParamDef('resetFindBugsLimits', Boolean.class, Boolean.FALSE, 'deaktiviert den Vergleich der Anzahl der FindBugs-Verstoesse und setzt den Vergleichswert zurueck')
 )
@@ -34,7 +55,7 @@ Params params = Params.load(
  *
  * @param NodeZuordnung entsprechend des Build-Parameters.
  */
-node(NodeZuordnung) {
+node(params.get('node')) {
 
     timestamps {
 
@@ -46,7 +67,7 @@ node(NodeZuordnung) {
 				parallel(
 					'SVN-Checkout': {
 						// Wenn angefordert erstmal ein cleanup auf dem SVN machen
-						if (WithSvnCleanup.toBoolean()) {
+						if (!params.isSet('withoutSvnCleanup')) {
 							run 'svn cleanup Workspace'
 							run 'svn cleanup program'
 						} else {
@@ -54,7 +75,7 @@ node(NodeZuordnung) {
 						}
 
 						// Dann aus dem SVN Workspace und program auschecken
-						if (WithCheckout.toBoolean()) {
+						if (!params.isSet('withoutSvnCheckout')) {
 							checkout poll: true, scm: [
 								$class          : 'SubversionSCM',
 								locations       : [
@@ -83,7 +104,7 @@ node(NodeZuordnung) {
 		
 				parallel(
 					'clean': {
-						if (WithClean.toBoolean())
+						if (!params.isSet('withoutClean'))
 							callGradle(0, 'clean')
 					}
 				)
@@ -93,13 +114,13 @@ node(NodeZuordnung) {
 
 						def tasks = []
 
-						if (WithCheckBuildscripts.toBoolean()) {
+						if (!params.isSet('withoutCheckBuildscripts')) {
 							tasks.add('checkBuildscripts')
 						}
 
-						if (WithBuild.toBoolean()) {
+						if (!params.isSet('withoutBuild')) {
 							tasks.add('buildAllComponents')
-							if (!WithGwtCompile.toBoolean()) {
+							if (params.isSet('withoutGwtCompile')) {
 								tasks.add('-x compileGwt')
 							}
 						}
@@ -107,7 +128,7 @@ node(NodeZuordnung) {
 						if (!tasks.isEmpty()) {
 							callGradle(0, tasks.join(' '))
 						} else {
-							println "No grade tasks to execute"
+							println "No gradle tasks to execute"
 						}
 					}
 				)
@@ -119,37 +140,37 @@ node(NodeZuordnung) {
 					parallel(
 
 						'Get Unit Test Results': {
-							if (WithStaticAnalysis.toBoolean()) {
+							if (!params.isSet('withoutStaticAnalysis')) {
 								getUnit(StaticAnalysisType.JUNIT)
 							}
 						},
 						'Get CodeNarc Results': {
-							if (WithCheckBuildscripts.toBoolean()) {
+							if (!params.isSet('withoutCheckBuildscripts')) {
 								getAsArtefact(StaticAnalysisType.CODENARC)
 							}
 						},
 						'Get Findbugs Results': {
-							if (WithStaticAnalysis.toBoolean()) {
-								getFindbugs(StaticAnalysisType.FINDBUGS, ResetFindbugsLimits.toBoolean())
+							if (!params.isSet('withoutStaticAnalysis')) {
+								getFindbugs(StaticAnalysisType.FINDBUGS, params.isSet('resetFindBugsLimits'))
 							}
 						},
 						'Get Checkstyle Results': {
-							if (WithStaticAnalysis.toBoolean()) {
-								getCheckstyle(StaticAnalysisType.CHECKSTYLE, ResetCheckstyleLimits.toBoolean())
+							if (!params.isSet('withoutStaticAnalysis')) {
+								getCheckstyle(StaticAnalysisType.CHECKSTYLE, params.isSet('resetCheckstyleLimits'))
 							}
 						},
 						'Get Classycle Results': {
-							if (WithStaticAnalysis.toBoolean()) {
+							if (!params.isSet('withoutStaticAnalysis')) {
 								getAsArtefact(StaticAnalysisType.CLASSYCLE)
 							}
 						},
 						'Get Task Scanner Results': {
-							if (WithStaticAnalysis.toBoolean()) {
+							if (!params.isSet('withoutStaticAnalysis')) {
 								getTodos(StaticAnalysisType.TODOS)
 							}
 						},
 						'Get Compiler Warnings': {
-							if (WithStaticAnalysis.toBoolean()) {
+							if (!params.isSet('withoutStaticAnalysis')) {
 								getCompilerWarnings(StaticAnalysisType.WARNINGS)
 							}
 						}
@@ -173,7 +194,7 @@ node(NodeZuordnung) {
 
 				parallel(
 					'Compile Manual': {
-						if (WithCompileManual.toBoolean()) {
+						if (!params.isSet('withoutCompileManual')) {
 							println "Stashing flare-input"
 							stash includes: 'Workspace/POSY-Online-Hilfe/', name: 'flare-input'
 
@@ -201,7 +222,7 @@ node(NodeZuordnung) {
 						}
 					},
 					'Systemtests local' : {
-						if (WithSystemtestLocal.toBoolean()) {
+						if (!params.isSet('withoutSystemtestLocal')) {
 							step([$class               : 'TestrunnerBuilder',
 								  applicationProperties: "${TESTRUNNER_APPLICATION}",
 								  assertionsEnabled    : true,
@@ -221,7 +242,7 @@ node(NodeZuordnung) {
 						}
 					},
 					'Systemtests Plugins' : {
-						if (WithSystemtestPlugins.toBoolean()) {
+						if (!params.isSet('withoutSystemtestPlugins')) {
 							step([$class               : 'TestrunnerBuilder',
 								  applicationProperties: "${TESTRUNNER_APPLICATION}",
 								  assertionsEnabled    : true,
@@ -241,7 +262,7 @@ node(NodeZuordnung) {
 						}
 					},
 					'Systemtests Replikation' : {
-						if (WithSystemtestReplikation.toBoolean()) {
+						if (!params.isSet('withoutReplicationTestsLinux')) {
 							step([$class               : 'TestrunnerBuilder',
 								  applicationProperties: "${TESTRUNNER_APPLICATION}",
 								  assertionsEnabled    : true,
@@ -267,7 +288,7 @@ node(NodeZuordnung) {
 				milestone()
 				parallel(
 					'Systemtests Remote': {
-						if (!"${SystemtestTestsysteme}".isEmpty()) {
+						if (!params.isSet('withoutSystemTestsAix')) {
 							echo 'SystemTests Testsysteme DUMMY...'
 							step([$class: 'JUnitResultArchiver', keepLongStdio: true, testResults: "Workspace/**/build/test-results/*.xml,Workspace/reports/junit/*_system_result.xml"])
 						} else {
@@ -281,7 +302,7 @@ node(NodeZuordnung) {
 				milestone()
 				parallel(
 					'Unit-Tests Remote': {
-						if (!"${UnitTestTestsysteme}".isEmpty()) {
+						if (!params.isSet('withoutUnitTestsAix')) {
 							echo 'UnitTests Testsysteme DUMMY...'
 						} else {
 							echo 'Skipping Unit-Tests'
@@ -762,7 +783,15 @@ class Params implements Serializable {
     }
     
     public boolean isSet(String flagName) {
-        return this.params.get(flagName)
+        return get(flagName)
+    }
+
+    public Object get(String paramName) {
+        Object v = this.params.get(paramName)
+        if (v == null) {
+            throw new RuntimeException('error in pipeline script. invalid parameter name ' + paramName)
+        }
+        return v
     }
 }
 
