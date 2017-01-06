@@ -402,7 +402,7 @@ void run(String linux, String windows = null) {
  * SVN-Informatationen auslesen und bereitstellen. Wird intern benutzt.
  */
 void initSvnInfo(String path) {
-    if (!svn_properties.isEmpty()) return;
+    if (!svn_properties.isEmpty()) return
     def tmpFileName = pwd(tmp:true) + '/SVNINFO'
     File tmpFile = new File(tmpFileName)
     try {
@@ -559,7 +559,7 @@ enum StaticAnalysisType {
     String name
     String pattern
 
-    public StaticAnalysisType(String name, String pattern) {
+    StaticAnalysisType(String name, String pattern) {
         this.name = name
         this.pattern = pattern
     }
@@ -580,20 +580,20 @@ def jabber(String info) {
 		case 'UNSTABLE':
 			col = 'YELLOW'
 			state = 'UNSTABLE'
-			break;
+			break
 		case null:
 		case 'SUCCESS':
 			col = 'GREEN'
 			state = 'SUCCESSFUL'
-			break;
+			break
 		case 'FAILURE':
 			col = 'RED'
 			state = 'FAILURE'
-			break;
+			break
 		case 'ABORTED':
 			col = 'RED'
 			state = 'ABORTED'
-			break;
+			break
 	}
 	echo "RESULT: ${currentBuild.result}"
 	hipchatSend (color: col, notify: true,
@@ -602,4 +602,4 @@ def jabber(String info) {
 }
 
 // Wird benötigt, damit das Load (aus dem Jenkins Job, das diese Pipeline läd) nicht hängen bleibt.
-return this;
+return this
