@@ -6,11 +6,6 @@
 import java.text.SimpleDateFormat
 
 /**
- * Testrunner-User.
- */
-String testrunnerUser = 'H1'
-
-/**
  * Liste der ermittelten SVN-Properties.
  */
 svn_properties = [:]
@@ -60,7 +55,7 @@ node(params.get('node')) {
     timestamps {
 
 		try {
-			nodeSetUp(testrunnerUser)
+			nodeSetUp()
 
 			stage('Checkout') {
 
@@ -68,8 +63,8 @@ node(params.get('node')) {
 					'SVN-Checkout': {
 						// Wenn angefordert erstmal ein cleanup auf dem SVN machen
 						if (!params.isSet('withoutSvnCleanup')) {
-							run 'svn cleanup Workspace'
-							run 'svn cleanup program'
+							run "${env.SVN_BINARY} cleanup Workspace"
+							run "${env.SVN_BINARY} cleanup program"
 						} else {
 							println "Skipping SVN-Cleanup"
 						}
@@ -101,7 +96,7 @@ node(params.get('node')) {
 			}
 
 			stage ('Build Components and Static Analysis') {
-		
+
 				parallel(
 					'clean': {
 						if (!params.isSet('withoutClean'))
@@ -122,6 +117,7 @@ node(params.get('node')) {
 							tasks.add('buildAllComponents')
 							if (params.isSet('withoutGwtCompile')) {
 								tasks.add('-x compileGwt')
+                                tasks.add('-x test')
 							}
 						}
 
@@ -135,7 +131,7 @@ node(params.get('node')) {
 			}
 
 			stage ('Get Results of Static Analysis') {
-				
+
 				try {
 					parallel(
 
@@ -189,7 +185,7 @@ node(params.get('node')) {
 					)
 				}
 			}
-			
+
 			stage ('Systemtests local and compile Manual') {
 
 				parallel(
@@ -214,9 +210,8 @@ node(params.get('node')) {
 							sh "rm -rf '$env.WORKSPACE/Workspace/Buildresults/Handbuch'"
 							sh "cp -R '$env.WORKSPACE/Workspace/POSY-Online-Hilfe/POSY-MailManagement/Output/jenkins' '$env.WORKSPACE/Workspace/Buildresults/Handbuch'"
 
-							dir('Workspace/rootProject') {
-								callGradle(0, "injectManual")
-							}
+							callGradle(0, "injectManual")
+
 						} else {
 							println "Skipping compile manual"
 						}
@@ -297,7 +292,7 @@ node(params.get('node')) {
 					}
 				)
 			}
-			
+
 			stage('UnitTests Remote') {
 				milestone()
 				parallel(
@@ -310,7 +305,7 @@ node(params.get('node')) {
 					}
 				)
 			}
-			
+
 			stage('Auslieferung vorbereiten') {
 				milestone()
 				parallel(
@@ -325,7 +320,7 @@ node(params.get('node')) {
 					}
 				)
 			}
-			
+
 		} catch (Exception e) {
 			currentBuild.result = 'FAILED'
 			throw e
@@ -368,10 +363,8 @@ node(params.get('node')) {
  *     <li><code>TESTRUNNER_CLUSTER</code></li>
  *     <li><code>TESTRUNNER_USER</code></li>
  * </ul>
- *
- * @param testRunnerUser Testrunner-User für den Jenkins-Lauf.
  */
-void nodeSetUp(String testRunnerUser) {
+void nodeSetUp() {
 
     println 'starting node setup'
 
@@ -400,38 +393,21 @@ void nodeSetUp(String testRunnerUser) {
     env.GRADLE_OPTS = '-Xmx4G'
     env.JAVA_OPTS = '-Xmx4G'
 
-    // Pfade relativ zum Workspace unter Linux
-    String[] pathsLinux = [
-            'program/svn',
-            'Workspace/extern/development/gradle/bin'
-    ]
-
-    // Pfade relativ zum Workspace unter Windows
-    String[] pathsWindows = [
-            'Workspace\\extern\\development\\subversion-1.8',
-            'Workspace\\extern\\development\\gradle\\bin'
-    ]
-
-    // Pfade relativ zum Workspace unter Linux
-    String[] libPathsLinux = [
-            'program/svn'
-    ]
-
-    // relative Pfade ergänzen
-    String[] relevantPaths = isUnix() ? pathsLinux : pathsWindows
-    for (int i = 0; i < relevantPaths.length; i++) {
-        String p = relevantPaths[i]
-        println "adding path: " + p
-        env.PATH = env.WORKSPACE + fileSep() + p + pathSep() + env.PATH
+    // Pfade zu den Binaries von SVN und Gradle setzen
+    if (isUnix()) {
+        env.GRADLE_BINARY = "${env.WORKSPACE}/Workspace/extern/development/gradle/bin/gradle"
+        env.SVN_BINARY = "svn"
+    } else {
+        env.GRADLE_BINARY = "${env.WORKSPACE}\\Workspace\\extern\\development\\gradle\\bin\\gradle.bat"
+        env.SVN_BINARY = "${env.WORKSPACE}\\Workspace\\\\extern\\\\development\\\\subversion-1.8\\svn.exe"
     }
-
-    // JAVA-JDK ergänzen
-    env.PATH = env.JAVA_HOME + fileSep() + 'bin' + pathSep() + env.PATH
-
-    println "PATH: ${env.PATH}"
 
     // Lib-Path unter Linux ergänzen
     if (isUnix()) {
+        // Pfade relativ zum Workspace unter Linux
+        String[] libPathsLinux = [
+                'program/svn'
+        ]
         for (int i = 0; i < libPathsLinux.length; i++) {
             String p = libPathsLinux[i]
             println "adding lib path: $p"
@@ -449,9 +425,6 @@ void nodeSetUp(String testRunnerUser) {
         TESTRUNNER_APPLICATION="application_jenkins_windows.xml"
         TESTRUNNER_CLUSTER="local_components"
     }
-
-    // Testrunner-User für den Build in Environment speichern
-    //env.TESTRUNNER_USER = testRunnerUser
 
     println 'done node setup'
 }
@@ -478,7 +451,7 @@ void initSvnInfo(String path) {
     def tmpFileName = pwd(tmp:true) + '/SVNINFO'
     File tmpFile = new File(tmpFileName)
     try {
-        run "svn info ${path} > ${tmpFileName}"
+        run "${env.SVN_BINARY} info ${path} > ${tmpFileName}"
         def info = readFile(tmpFileName)
         String[] parts = info.split('\n')
         for (int i = 0; i < parts.length; i++) {
@@ -523,7 +496,7 @@ void callGradle(int workers, String tasks) {
         def max_workers = workers > 0 ? "--parallel --max-workers=${workers}" : ''
         def jvm_args = '-server -Xmx1G -Xms1G -XX:ReservedCodeCacheSize=1G -XX:+DisableExplicitGC -XX:MaxPermSize=1G -XX:PermSize=256m -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:+CMSPermGenSweepingEnabled'
 
-        run "gradle --no-daemon -s -PsetBuildDate=${env.BUILD_DATE} -Dorg.gradle.jvmargs=\"${jvm_args}\" ${max_workers} $tasks"
+        run "${env.GRADLE_BINARY} --no-daemon -s -PsetBuildDate=${env.BUILD_DATE} -Dorg.gradle.jvmargs=\"${jvm_args}\" ${max_workers} $tasks"
     }
 }
 
