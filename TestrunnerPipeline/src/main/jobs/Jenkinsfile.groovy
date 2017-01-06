@@ -27,267 +27,285 @@ node(NodeZuordnung) {
 
     timestamps {
 
-        nodeSetUp(testrunnerUser)
+		try {
+			nodeSetUp(testrunnerUser)
 
-        stage('Checkout') {
+			stage('Checkout') {
 
-            parallel(
-                'SVN-Checkout': {
-                    // Wenn angefordert erstmal ein cleanup auf dem SVN machen
-                    if (WithSvnCleanup.toBoolean()) {
-                        run 'svn cleanup Workspace'
-                        run 'svn cleanup program'
-                    } else {
-                        println "Skipping SVN-Cleanup"
-                    }
-
-                    // Dann aus dem SVN Workspace und program auschecken
-                    if (WithCheckout.toBoolean()) {
-                        checkout poll: true, scm: [
-                            $class          : 'SubversionSCM',
-                            locations       : [
-                                [credentialsId: 'jenkins', depthOption: 'infinity', ignoreExternalsOption: true,
-                                 local        : 'Workspace',
-                                 remote       : "https://svn.intranet.set.de/svn/POSY-Redesign/${Branch}/Workspace@${Revision}"],
-                                [credentialsId: 'jenkins', depthOption: 'infinity', ignoreExternalsOption: true,
-                                 local        : 'program',
-                                 remote       : "https://svn.intranet.set.de/svn/POSY-Redesign/${Branch}/program@${Revision}"]],
-                                // workspaceUpdater: [$class: 'UpdateWithCleanUpdater']
-                        ]
-                    } else {
-                        println "Skipping SVN-Checkout"
-                    }
-
-                    // Nun die SVN-Informationen besorgen und als Umgebungsvariablen setzen
-                    env.SVN_REVISION = getSvnRev('Workspace')
-                    println "SVN_REVISION: ${env.SVN_REVISION}"
-                    env.SVN_URL = getSvnUrl('Workspace')
-                    println "SVN_URL: ${env.SVN_URL}"
-                }
-            )
-        }
-
-        stage ('Build Components and Static Analysis') {
-    
-            parallel(
-                'clean': {
-                    if (WithClean.toBoolean())
-                        callGradle(0, 'clean')
-                }
-            )
-
-            parallel(
-                'build': {
-
-                    def tasks = []
-
-                    if (WithCheckBuildscripts.toBoolean()) {
-                        tasks.add('checkBuildscripts')
-                    }
-
-                    if (WithBuild.toBoolean()) {
-                        tasks.add('buildAllComponents')
-                        if (!WithGwtCompile.toBoolean()) {
-                            tasks.add('-x compileGwt')
-                        }
-                    }
-
-                    if (!tasks.isEmpty()) {
-                        callGradle(0, tasks.join(' '))
-                    } else {
-                        println "No grade tasks to execute"
-                    }
-                }
-            )
-        }
-
-        stage ('Get Results of Static Analysis') {
-            
-			try {
 				parallel(
+					'SVN-Checkout': {
+						// Wenn angefordert erstmal ein cleanup auf dem SVN machen
+						if (WithSvnCleanup.toBoolean()) {
+							run 'svn cleanup Workspace'
+							run 'svn cleanup program'
+						} else {
+							println "Skipping SVN-Cleanup"
+						}
 
-					'Get Unit Test Results': {
-						if (WithStaticAnalysis.toBoolean()) {
-							getUnit(StaticAnalysisType.JUNIT)
+						// Dann aus dem SVN Workspace und program auschecken
+						if (WithCheckout.toBoolean()) {
+							checkout poll: true, scm: [
+								$class          : 'SubversionSCM',
+								locations       : [
+									[credentialsId: 'jenkins', depthOption: 'infinity', ignoreExternalsOption: true,
+									 local        : 'Workspace',
+									 remote       : "https://svn.intranet.set.de/svn/POSY-Redesign/${Branch}/Workspace@${Revision}"],
+									[credentialsId: 'jenkins', depthOption: 'infinity', ignoreExternalsOption: true,
+									 local        : 'program',
+									 remote       : "https://svn.intranet.set.de/svn/POSY-Redesign/${Branch}/program@${Revision}"]],
+									// workspaceUpdater: [$class: 'UpdateWithCleanUpdater']
+							]
+						} else {
+							println "Skipping SVN-Checkout"
 						}
-					},
-					'Get CodeNarc Results': {
-						if (WithCheckBuildscripts.toBoolean()) {
-							getAsArtefact(StaticAnalysisType.CODENARC)
-						}
-					},
-					'Get Findbugs Results': {
-						if (WithStaticAnalysis.toBoolean()) {
-							getFindbugs(StaticAnalysisType.FINDBUGS, ResetFindbugsLimits.toBoolean())
-						}
-					},
-					'Get Checkstyle Results': {
-						if (WithStaticAnalysis.toBoolean()) {
-							getCheckstyle(StaticAnalysisType.CHECKSTYLE, ResetCheckstyleLimits.toBoolean())
-						}
-					},
-					'Get Classycle Results': {
-						if (WithStaticAnalysis.toBoolean()) {
-							getAsArtefact(StaticAnalysisType.CLASSYCLE)
-						}
-					},
-					'Get Task Scanner Results': {
-						if (WithStaticAnalysis.toBoolean()) {
-							getTodos(StaticAnalysisType.TODOS)
-						}
-					},
-					'Get Compiler Warnings': {
-						if (WithStaticAnalysis.toBoolean()) {
-							getCompilerWarnings(StaticAnalysisType.WARNINGS)
-						}
-					}
-				)
-			} finally {
-				parallel (
-					'Send Mail': {
-						mailToCommitters()
-					},
-					'HipChat': {
-						jabber()
+
+						// Nun die SVN-Informationen besorgen und als Umgebungsvariablen setzen
+						env.SVN_REVISION = getSvnRev('Workspace')
+						println "SVN_REVISION: ${env.SVN_REVISION}"
+						env.SVN_URL = getSvnUrl('Workspace')
+						println "SVN_URL: ${env.SVN_URL}"
 					}
 				)
 			}
-        }
-        
-        stage ('Systemtests local and compile Manual') {
 
-            parallel(
-                'Compile Manual': {
-                    if (WithCompileManual.toBoolean()) {
-                        println "Stashing flare-input"
-                        stash includes: 'Workspace/POSY-Online-Hilfe/', name: 'flare-input'
+			stage ('Build Components and Static Analysis') {
+		
+				parallel(
+					'clean': {
+						if (WithClean.toBoolean())
+							callGradle(0, 'clean')
+					}
+				)
 
-                        node('windows && flare') {
-							deleteDir()
-							unstash 'flare-input'
-							dir('Workspace/POSY-Online-Hilfe') {
-								bat 'buildFlare.cmd'
+				parallel(
+					'build': {
+
+						def tasks = []
+
+						if (WithCheckBuildscripts.toBoolean()) {
+							tasks.add('checkBuildscripts')
+						}
+
+						if (WithBuild.toBoolean()) {
+							tasks.add('buildAllComponents')
+							if (!WithGwtCompile.toBoolean()) {
+								tasks.add('-x compileGwt')
 							}
-                            println "Stashing flare-output"
-                            stash includes: 'Workspace/POSY-Online-Hilfe/POSY-MailManagement/Output/jenkins/', excludes: '**/Temporary/**', name: 'flare-output'
-                            println "Archiving Flare logs"
-                            archiveArtifacts 'Workspace/POSY-Online-Hilfe/POSY-MailManagement/Output/**/*.mclog'
-                        }
-                        unstash 'flare-output'
-                        sh "mkdir -p '$env.WORKSPACE/Workspace/Buildresults'"
-                        sh "rm -rf '$env.WORKSPACE/Workspace/Buildresults/Handbuch'"
-                        sh "cp -R '$env.WORKSPACE/Workspace/POSY-Online-Hilfe/POSY-MailManagement/Output/jenkins' '$env.WORKSPACE/Workspace/Buildresults/Handbuch'"
+						}
 
-                        dir('Workspace/rootProject') {
-                            callGradle(0, "injectManual")
-                        }
-                    } else {
-                        println "Skipping compile manual"
-                    }
-                },
-                'Systemtests local' : {
-                    if (WithSystemtestLocal.toBoolean()) {
-                        step([$class               : 'TestrunnerBuilder',
-                              applicationProperties: "${TESTRUNNER_APPLICATION}",
-                              assertionsEnabled    : true,
-                              clusters             : "${TESTRUNNER_CLUSTER}",
-                              instrumented         : true,
-                              javaCommand          : "${env.JAVA_BINARY}",
-                              reportPath           : "${env.WORKSPACE}/Workspace/report/",
-                              statusServerPorts    : '1234',
-                              testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle",
-                              testrunnerJar        : 'Testtools.jar',
-                              testrunnerMainClass  : 'de.setsoftware.posy.testrunner.TestrunnerMain',
-                              testrunnerPath       : "${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools",
-                              testrunnerUsers      : "H0"
-                        ])
-                    } else {
-                        echo 'Skipping SystemtestLocal'
-                    }
-                },
-                'Systemtests Plugins' : {
-                    if (WithSystemtestPlugins.toBoolean()) {
-                        step([$class               : 'TestrunnerBuilder',
-                              applicationProperties: "${TESTRUNNER_APPLICATION}",
-                              assertionsEnabled    : true,
-                              clusters             : "${TESTRUNNER_CLUSTER}",
-                              instrumented         : true,
-                              javaCommand          : "${env.JAVA_BINARY}",
-                              reportPath           : "${env.WORKSPACE}/Workspace/report/",
-                              statusServerPorts    : '1235',
-                              testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle-Plugins",
-                              testrunnerJar        : 'Testtools.jar',
-                              testrunnerMainClass  : 'de.setsoftware.posy.testrunner.TestrunnerMain',
-                              testrunnerPath       : "${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools",
-                              testrunnerUsers      : "H1"
-                        ])
-                    } else {
-                        echo 'Skipping SystemtestPlugins'
-                    }
-                },
-                'Systemtests Replikation' : {
-                    if (WithSystemtestReplikation.toBoolean()) {
-                        step([$class               : 'TestrunnerBuilder',
-                              applicationProperties: "${TESTRUNNER_APPLICATION}",
-                              assertionsEnabled    : true,
-                              clusters             : "${TESTRUNNER_CLUSTER}",
-                              instrumented         : true,
-                              javaCommand          : "${env.JAVA_BINARY}",
-                              reportPath           : "${env.WORKSPACE}/Workspace/report/",
-                              statusServerPorts    : '1236',
-                              testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle-Replikation",
-                              testrunnerJar        : 'Testtools.jar',
-                              testrunnerMainClass  : 'de.setsoftware.posy.testrunner.TestrunnerMain',
-                              testrunnerPath       : "${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools",
-                              testrunnerUsers      : "H2"
-                        ])
-                    } else {
-                        echo 'Skipping SystemtestReplikation'
-                    }
-                }
-            )
-        }
+						if (!tasks.isEmpty()) {
+							callGradle(0, tasks.join(' '))
+						} else {
+							println "No grade tasks to execute"
+						}
+					}
+				)
+			}
 
-        stage('Systemtests Remote') {
-            milestone()
-            parallel(
-                'Systemtests Remote': {
-                    if (!"${SystemtestTestsysteme}".isEmpty()) {
-                        echo 'SystemTests Testsysteme DUMMY...'
-                        step([$class: 'JUnitResultArchiver', keepLongStdio: true, testResults: "Workspace/**/build/test-results/*.xml,Workspace/reports/junit/*_system_result.xml"])
-                    } else {
-                        echo 'Skipping Systemtests'
-                    }
-                }
-            )
-        }
-        
-        stage('UnitTests Remote') {
-            milestone()
-            parallel(
-                'Unit-Tests Remote': {
-                    if (!"${UnitTestTestsysteme}".isEmpty()) {
-                        echo 'UnitTests Testsysteme DUMMY...'
-                    } else {
-                        echo 'Skipping Unit-Tests'
-                    }
-                }
-            )
-        }
-        
-        stage('Auslieferung vorbereiten') {
-            milestone()
-            parallel(
-                'Deployment (optional)': {
-                    if (currentBuild.description != null && currentBuild.description.contains("Auslieferbereit")) {
-                        build job: 'Auslieferbereit',
-                                parameters: [
-                                        [$class: 'StringParameterValue', name: 'SVN_REVISION', value: "${env.SVN_REVISION}"],
-                                        [$class: 'StringParameterValue', name: 'BUILD_NUMBER', value: "${env.BUILD_ID}"]],
-                                propagate: false, wait: false
-                    }
-                }
-            )
+			stage ('Get Results of Static Analysis') {
+				
+				try {
+					parallel(
+
+						'Get Unit Test Results': {
+							if (WithStaticAnalysis.toBoolean()) {
+								getUnit(StaticAnalysisType.JUNIT)
+							}
+						},
+						'Get CodeNarc Results': {
+							if (WithCheckBuildscripts.toBoolean()) {
+								getAsArtefact(StaticAnalysisType.CODENARC)
+							}
+						},
+						'Get Findbugs Results': {
+							if (WithStaticAnalysis.toBoolean()) {
+								getFindbugs(StaticAnalysisType.FINDBUGS, ResetFindbugsLimits.toBoolean())
+							}
+						},
+						'Get Checkstyle Results': {
+							if (WithStaticAnalysis.toBoolean()) {
+								getCheckstyle(StaticAnalysisType.CHECKSTYLE, ResetCheckstyleLimits.toBoolean())
+							}
+						},
+						'Get Classycle Results': {
+							if (WithStaticAnalysis.toBoolean()) {
+								getAsArtefact(StaticAnalysisType.CLASSYCLE)
+							}
+						},
+						'Get Task Scanner Results': {
+							if (WithStaticAnalysis.toBoolean()) {
+								getTodos(StaticAnalysisType.TODOS)
+							}
+						},
+						'Get Compiler Warnings': {
+							if (WithStaticAnalysis.toBoolean()) {
+								getCompilerWarnings(StaticAnalysisType.WARNINGS)
+							}
+						}
+					)
+				} catch (Exception e) {
+					currentBuild.result = 'FAILED'
+					throw e
+				} finally {
+					parallel (
+						'Send Mail': {
+							mailToCommitters()
+						},
+						'HipChat': {
+							jabber('CheckCommit Phases')
+						}
+					)
+				}
+			}
+			
+			stage ('Systemtests local and compile Manual') {
+
+				parallel(
+					'Compile Manual': {
+						if (WithCompileManual.toBoolean()) {
+							println "Stashing flare-input"
+							stash includes: 'Workspace/POSY-Online-Hilfe/', name: 'flare-input'
+
+							node('windows && flare') {
+								deleteDir()
+								unstash 'flare-input'
+								dir('Workspace/POSY-Online-Hilfe') {
+									bat 'buildFlare.cmd'
+								}
+								println "Stashing flare-output"
+								stash includes: 'Workspace/POSY-Online-Hilfe/POSY-MailManagement/Output/jenkins/', excludes: '**/Temporary/**', name: 'flare-output'
+								println "Archiving Flare logs"
+								archiveArtifacts 'Workspace/POSY-Online-Hilfe/POSY-MailManagement/Output/**/*.mclog'
+							}
+							unstash 'flare-output'
+							sh "mkdir -p '$env.WORKSPACE/Workspace/Buildresults'"
+							sh "rm -rf '$env.WORKSPACE/Workspace/Buildresults/Handbuch'"
+							sh "cp -R '$env.WORKSPACE/Workspace/POSY-Online-Hilfe/POSY-MailManagement/Output/jenkins' '$env.WORKSPACE/Workspace/Buildresults/Handbuch'"
+
+							dir('Workspace/rootProject') {
+								callGradle(0, "injectManual")
+							}
+						} else {
+							println "Skipping compile manual"
+						}
+					},
+					'Systemtests local' : {
+						if (WithSystemtestLocal.toBoolean()) {
+							step([$class               : 'TestrunnerBuilder',
+								  applicationProperties: "${TESTRUNNER_APPLICATION}",
+								  assertionsEnabled    : true,
+								  clusters             : "${TESTRUNNER_CLUSTER}",
+								  instrumented         : true,
+								  javaCommand          : "${env.JAVA_BINARY}",
+								  reportPath           : "${env.WORKSPACE}/Workspace/report/",
+								  statusServerPorts    : '1234',
+								  testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle",
+								  testrunnerJar        : 'Testtools.jar',
+								  testrunnerMainClass  : 'de.setsoftware.posy.testrunner.TestrunnerMain',
+								  testrunnerPath       : "${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools",
+								  testrunnerUsers      : "H0"
+							])
+						} else {
+							echo 'Skipping SystemtestLocal'
+						}
+					},
+					'Systemtests Plugins' : {
+						if (WithSystemtestPlugins.toBoolean()) {
+							step([$class               : 'TestrunnerBuilder',
+								  applicationProperties: "${TESTRUNNER_APPLICATION}",
+								  assertionsEnabled    : true,
+								  clusters             : "${TESTRUNNER_CLUSTER}",
+								  instrumented         : true,
+								  javaCommand          : "${env.JAVA_BINARY}",
+								  reportPath           : "${env.WORKSPACE}/Workspace/report/",
+								  statusServerPorts    : '1235',
+								  testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle-Plugins",
+								  testrunnerJar        : 'Testtools.jar',
+								  testrunnerMainClass  : 'de.setsoftware.posy.testrunner.TestrunnerMain',
+								  testrunnerPath       : "${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools",
+								  testrunnerUsers      : "H1"
+							])
+						} else {
+							echo 'Skipping SystemtestPlugins'
+						}
+					},
+					'Systemtests Replikation' : {
+						if (WithSystemtestReplikation.toBoolean()) {
+							step([$class               : 'TestrunnerBuilder',
+								  applicationProperties: "${TESTRUNNER_APPLICATION}",
+								  assertionsEnabled    : true,
+								  clusters             : "${TESTRUNNER_CLUSTER}",
+								  instrumented         : true,
+								  javaCommand          : "${env.JAVA_BINARY}",
+								  reportPath           : "${env.WORKSPACE}/Workspace/report/",
+								  statusServerPorts    : '1236',
+								  testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle-Replikation",
+								  testrunnerJar        : 'Testtools.jar',
+								  testrunnerMainClass  : 'de.setsoftware.posy.testrunner.TestrunnerMain',
+								  testrunnerPath       : "${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools",
+								  testrunnerUsers      : "H2"
+							])
+						} else {
+							echo 'Skipping SystemtestReplikation'
+						}
+					}
+				)
+			}
+
+			stage('Systemtests Remote') {
+				milestone()
+				parallel(
+					'Systemtests Remote': {
+						if (!"${SystemtestTestsysteme}".isEmpty()) {
+							echo 'SystemTests Testsysteme DUMMY...'
+							step([$class: 'JUnitResultArchiver', keepLongStdio: true, testResults: "Workspace/**/build/test-results/*.xml,Workspace/reports/junit/*_system_result.xml"])
+						} else {
+							echo 'Skipping Systemtests'
+						}
+					}
+				)
+			}
+			
+			stage('UnitTests Remote') {
+				milestone()
+				parallel(
+					'Unit-Tests Remote': {
+						if (!"${UnitTestTestsysteme}".isEmpty()) {
+							echo 'UnitTests Testsysteme DUMMY...'
+						} else {
+							echo 'Skipping Unit-Tests'
+						}
+					}
+				)
+			}
+			
+			stage('Auslieferung vorbereiten') {
+				milestone()
+				parallel(
+					'Deployment (optional)': {
+						if (currentBuild.description != null && currentBuild.description.contains("Auslieferbereit")) {
+							build job: 'Auslieferbereit',
+									parameters: [
+											[$class: 'StringParameterValue', name: 'SVN_REVISION', value: "${env.SVN_REVISION}"],
+											[$class: 'StringParameterValue', name: 'BUILD_NUMBER', value: "${env.BUILD_ID}"]],
+									propagate: false, wait: false
+						}
+					}
+				)
+			}
+			
+		} catch (Exception e) {
+			currentBuild.result = 'FAILED'
+			throw e
+		} finally {
+			parallel (
+				'Send Mail': {
+					mailToCommitters()
+				},
+				'HipChat': {
+					jabber('Full Pipeline')
+				}
+			)
         }
         
     }
@@ -609,22 +627,31 @@ def mailToCommitters() {
 			body: "Siehe ${env.BUILD_URL}"
 }
 
-def jabber() {
-	def col = 'GREEN'
-	def state = 'SUCCESSFUL'
+def jabber(String info) {
+	def col = 'RED'
+	def state = 'UNDEFINED'
 	switch (currentBuild.result) {
 		case 'UNSTABLE':
 			col = 'YELLOW'
 			state = 'UNSTABLE'
 			break;
+		case null:
+		case 'SUCCESS':
+			col = 'GREEN'
+			state = 'SUCCESSFUL'
+			break;
 		case 'FAILURE':
 			col = 'RED'
 			state = 'FAILURE'
 			break;
+		case 'ABORTED':
+			col = 'RED'
+			state = 'ABORTED'
+			break;
 	}
 	echo "RESULT: ${currentBuild.result}"
 	hipchatSend (color: col, notify: true,
-		message: "Jenkins: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' ${state} (${env.BUILD_URL})"
+		message: "${info} '${env.JOB_NAME} [${env.BUILD_NUMBER}]' ${state} (<a href=\"${env.BUILD_URL}\">View in Jenkins</a>)"
 	)
 }
 
