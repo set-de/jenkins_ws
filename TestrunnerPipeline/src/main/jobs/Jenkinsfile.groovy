@@ -11,6 +11,43 @@ import java.text.SimpleDateFormat
 svn_properties = [:]
 
 /**
+ * Laden der Parameter (und gleichzeitig Uebersicht ueber die moeglichen Parameter).
+ */
+Params params = Params.load(
+    steps,
+    FurtherPipelineParams.toString(),
+    new ParamDef('help', Boolean.class, Boolean.FALSE, 'gibt die moeglichen Parameter aus und beendet danach den Build'),
+    //TODO Standardwert durch sinnvollen Wert ersetzen
+    new ParamDef('node', String.class, 'windows', 'Label zur Auswahl des Knotens'),
+    new ParamDef('withoutSvnCleanup', Boolean.class, Boolean.FALSE, 'Bereinigen des Workspace (SVN) deaktivieren'),
+    new ParamDef('withoutSvnCheckout', Boolean.class, Boolean.FALSE, 'Aktualisieren des Workspace deaktivieren'),
+    new ParamDef('withoutClean', Boolean.class, Boolean.FALSE, 'Gradle clean deaktivieren'),
+    new ParamDef('withoutBuild', Boolean.class, Boolean.FALSE, 'Bauen der Komponenten und statische Analysen deaktivieren'),
+    new ParamDef('withoutCheckBuildscripts', Boolean.class, Boolean.FALSE, 'Prüfung der Buildskripte deaktivieren'),
+    new ParamDef('withoutStaticAnalysis', Boolean.class, Boolean.FALSE, 'Ausgabe der statischen Analyseergebnisse deaktivieren'),
+    new ParamDef('withoutCompileManual', Boolean.class, Boolean.FALSE, 'Erstellung des Handbuchs deaktivieren'),
+    new ParamDef('withoutGwtCompile', Boolean.class, Boolean.FALSE, 'GWT-Erstellung deaktivieren'),
+    new ParamDef('withoutUnitTestsLinux', Boolean.class, Boolean.FALSE, 'Lokale Unit-Tests (auf Linux) deaktivieren'),
+    new ParamDef('withoutUnitTestsAix', Boolean.class, Boolean.FALSE, 'Remote-Unit-Tests auf AIX deaktivieren'),
+    new ParamDef('withoutUnitTestsSolaris', Boolean.class, Boolean.FALSE, 'Remote-Unit-Tests auf Solaris deaktivieren'),
+    new ParamDef('withoutUnitTestsZos', Boolean.class, Boolean.FALSE, 'Remote-Unit-Tests auf z/OS deaktivieren'),
+    new ParamDef('withoutSystemTestsLinux', Boolean.class, Boolean.FALSE, 'Lokale Systemtests (auf Linux) deaktivieren'),
+    new ParamDef('withoutSystemTestsAix', Boolean.class, Boolean.FALSE, 'Remote-Systemtests auf AIX deaktivieren'),
+    new ParamDef('withoutSystemTestsSolaris', Boolean.class, Boolean.FALSE, 'Remote-Systemtests auf Solaris deaktivieren'),
+    new ParamDef('withoutSystemTestsZos', Boolean.class, Boolean.FALSE, 'Remote-Systemtests auf z/OS deaktivieren'),
+    new ParamDef('withoutPluginTestsLinux', Boolean.class, Boolean.FALSE, 'Lokale Plugin-Systemtests (auf Linux) deaktivieren'),
+    new ParamDef('withoutReplicationTestsLinux', Boolean.class, Boolean.FALSE, 'Lokale Replikations-Systemtests (auf Linux) deaktivieren'),
+    new ParamDef('withoutGuiTestsLinux', Boolean.class, Boolean.FALSE, 'Lokale GUI-Tests (auf Linux) deaktivieren'),
+    new ParamDef('resetCheckstyleLimits', Boolean.class, Boolean.FALSE, 'deaktiviert den Vergleich der Anzahl der Checkstyle-Verstoesse und setzt den Vergleichswert zurueck'),
+    new ParamDef('resetFindBugsLimits', Boolean.class, Boolean.FALSE, 'deaktiviert den Vergleich der Anzahl der FindBugs-Verstoesse und setzt den Vergleichswert zurueck')
+)
+
+if (params == null) {
+    makeBuildUnstable('help-Parameter verwendet')
+    return this
+}
+
+/**
  * Die eigentliche Pipeline.
  *
  * Zur besseren Benennung in der "Pipeline-Steps"-Ansicht werden auch einfache Tasks in ein <code>parallel</code>
@@ -18,7 +55,7 @@ svn_properties = [:]
  *
  * @param NodeZuordnung entsprechend des Build-Parameters.
  */
-node(NodeZuordnung) {
+node(params.get('node')) {
 
     timestamps {
 
@@ -33,7 +70,7 @@ node(NodeZuordnung) {
                     parallel(
                         'SVN-Checkout': {
                             // Wenn angefordert erstmal ein cleanup auf dem SVN machen
-                            if (WithSvnCleanup.toBoolean()) {
+						if (!params.isSet('withoutSvnCleanup')) {
                                 run "${env.SVN_BINARY} cleanup Workspace"
                                 run "${env.SVN_BINARY} cleanup program"
                             } else {
@@ -41,7 +78,7 @@ node(NodeZuordnung) {
                             }
 
                             // Dann aus dem SVN Workspace und program auschecken
-                            if (WithCheckout.toBoolean()) {
+						if (!params.isSet('withoutSvnCheckout')) {
                                 checkout poll: true, scm: [
                                     $class          : 'SubversionSCM',
                                     locations       : [
@@ -70,7 +107,7 @@ node(NodeZuordnung) {
 
                     parallel(
                         'clean': {
-                            if (WithClean.toBoolean())
+						if (!params.isSet('withoutClean'))
                                 callGradle(0, 'clean')
                         }
                     )
@@ -80,13 +117,13 @@ node(NodeZuordnung) {
 
                             def tasks = []
 
-                            if (WithCheckBuildscripts.toBoolean()) {
+						if (!params.isSet('withoutCheckBuildscripts')) {
                                 tasks.add('checkBuildscripts')
                             }
 
-                            if (WithBuild.toBoolean()) {
+						if (!params.isSet('withoutBuild')) {
                                 tasks.add('buildAllComponents')
-                                if (!WithGwtCompile.toBoolean()) {
+							if (params.isSet('withoutGwtCompile')) {
                                     tasks.add('-x compileGwt')
                                     tasks.add('-x test')
                                 }
@@ -95,7 +132,7 @@ node(NodeZuordnung) {
                             if (!tasks.isEmpty()) {
                                 callGradle(0, tasks.join(' '))
                             } else {
-                                println "No grade tasks to execute"
+							println "No gradle tasks to execute"
                             }
                         }
                     )
@@ -105,32 +142,46 @@ node(NodeZuordnung) {
 
                     if(WithStaticAnalysis.toBoolean()) {
                         parallel(
+
                             'Get Unit Test Results': {
+							if (!params.isSet('withoutStaticAnalysis')) {
                                 getUnit(StaticAnalysisType.JUNIT)
+							}
                             },
                             'Get CodeNarc Results': {
+							if (!params.isSet('withoutCheckBuildscripts')) {
                                 getAsArtefact(StaticAnalysisType.CODENARC)
+							}
                             },
                             'Get Findbugs Results': {
-                                getFindbugs(StaticAnalysisType.FINDBUGS, ResetFindbugsLimits.toBoolean())
+							if (!params.isSet('withoutStaticAnalysis')) {
+								getFindbugs(StaticAnalysisType.FINDBUGS, params.isSet('resetFindBugsLimits'))
+							}
                             },
                             'Get Checkstyle Results': {
-                                getCheckstyle(StaticAnalysisType.CHECKSTYLE, ResetCheckstyleLimits.toBoolean())
+							if (!params.isSet('withoutStaticAnalysis')) {
+								getCheckstyle(StaticAnalysisType.CHECKSTYLE, params.isSet('resetCheckstyleLimits'))
+							}
                             },
                             'Get Classycle Results': {
+							if (!params.isSet('withoutStaticAnalysis')) {
                                 getAsArtefact(StaticAnalysisType.CLASSYCLE)
+							}
                             },
                             'Get Task Scanner Results': {
+							if (!params.isSet('withoutStaticAnalysis')) {
                                 getTodos(StaticAnalysisType.TODOS)
+							}
                             },
                             'Get Compiler Warnings': {
+							if (!params.isSet('withoutStaticAnalysis')) {
                                 getCompilerWarnings(StaticAnalysisType.WARNINGS)
                             }
-                        )
+						)
                     }
                 }
 
-            } catch (Exception e) {
+			} catch (Exception e) {
                 currentBuild.result = 'FAILED'
                 throw e
             } finally {
@@ -141,7 +192,7 @@ node(NodeZuordnung) {
 
 				parallel(
 					'Compile Manual': {
-						if (WithCompileManual.toBoolean()) {
+						if (!params.isSet('withoutCompileManual')) {
 							println "Stashing flare-input"
 							stash includes: 'Workspace/POSY-Online-Hilfe/', name: 'flare-input'
 
@@ -168,7 +219,7 @@ node(NodeZuordnung) {
 						}
 					},
 					'Systemtests local' : {
-						if (WithSystemtestLocal.toBoolean()) {
+						if (!params.isSet('withoutSystemtestLocal')) {
 							step([$class               : 'TestrunnerBuilder',
 								  applicationProperties: "${TESTRUNNER_APPLICATION}",
 								  assertionsEnabled    : true,
@@ -188,7 +239,7 @@ node(NodeZuordnung) {
 						}
 					},
 					'Systemtests Plugins' : {
-						if (WithSystemtestPlugins.toBoolean()) {
+						if (!params.isSet('withoutSystemtestPlugins')) {
 							step([$class               : 'TestrunnerBuilder',
 								  applicationProperties: "${TESTRUNNER_APPLICATION}",
 								  assertionsEnabled    : true,
@@ -208,7 +259,7 @@ node(NodeZuordnung) {
 						}
 					},
 					'Systemtests Replikation' : {
-						if (WithSystemtestReplikation.toBoolean()) {
+						if (!params.isSet('withoutReplicationTestsLinux')) {
 							step([$class               : 'TestrunnerBuilder',
 								  applicationProperties: "${TESTRUNNER_APPLICATION}",
 								  assertionsEnabled    : true,
@@ -234,7 +285,7 @@ node(NodeZuordnung) {
                 milestone()
                 parallel(
                     'Systemtests Remote': {
-                        if (!"${SystemtestTestsysteme}".isEmpty()) {
+						if (!params.isSet('withoutSystemTestsAix')) {
                             echo 'SystemTests Testsysteme DUMMY...'
                             step([$class: 'JUnitResultArchiver', keepLongStdio: true, testResults: "Workspace/**/build/test-results/*.xml,Workspace/reports/junit/*_system_result.xml"])
                         } else {
@@ -248,7 +299,7 @@ node(NodeZuordnung) {
                 milestone()
                 parallel(
                     'Unit-Tests Remote': {
-                        if (!"${UnitTestTestsysteme}".isEmpty()) {
+						if (!params.isSet('withoutUnitTestsAix')) {
                             echo 'UnitTests Testsysteme DUMMY...'
                         } else {
                             echo 'Skipping Unit-Tests'
@@ -599,6 +650,128 @@ def chat(String info) {
     hipchatSend (color: col, notify: true,
         message: "${info} '${env.JOB_NAME} [${env.BUILD_NUMBER}]' ${state} (<a href=\"${env.BUILD_URL}\">View in Jenkins</a>)"
     )
+}
+
+class ParamDef implements Serializable {
+    private String name;
+    private Class<?> type;
+    private Object defaultValue;
+    private String description;
+    
+    public ParamDef(String name, Class<?> type, Object defaultValue, String description) {
+        this.name = name
+        this.type = type
+        this.defaultValue = defaultValue
+        this.description = description
+    }
+    
+    public boolean matches(String param) {
+        return param.equals(this.name) || param.startsWith(this.name + '=')
+    }
+    
+    public Object parse(String param, Set<String> messages) {
+        if (param.equals(this.name)) {
+            if (this.type.equals(Boolean.class)) {
+                return Boolean.TRUE
+            } else {
+                messages.add('Fuer Nicht-Boolean-Parameter muss ein Wert angegeben werden ' + param)
+                return Boolean.FALSE
+            }
+        } else {
+            String value = param.substring(this.name.length() + 1)
+            if (this.type.equals(Boolean.class)) {
+                if (!value.matches('true|false')) {
+                    messages.add('Ungueltiger Wert fuer Boolean-Parameter: ' + param)
+                }
+                return Boolean.parseBoolean(value)
+            } else {
+                return value
+            }
+        }
+        return null
+    }
+}
+
+class Params implements Serializable {
+    private Map<String, Object> params = new TreeMap<>()
+
+    public static Params load(def steps, String unparsed, ParamDef... possibleParams) {
+        String[] parts = unparsed.split(' ')
+        Params ret = new Params()
+        Set<ParamDef> found = new HashSet<>()
+        Set<String> messages = new LinkedHashSet<>()
+        for (int i = 0; i < parts.length; i++) {
+            String pt = parts[i].trim()
+            if (pt.isEmpty()) {
+                continue;
+            }
+            handleParam(pt, possibleParams, ret, found, messages)
+        }
+        for (int i = 0; i < possibleParams.length; i++) {
+            ParamDef pd = possibleParams[i]
+            if (!found.contains(pd)) {
+                ret.params.put(pd.name, pd.defaultValue)
+            }
+        }
+        if (!messages.isEmpty()) {
+            myEcho(steps, 'Ungueltige Parameter!\n' + messages)
+            printHelp(possibleParams, steps)
+            throw new RuntimeException('Ungueltige Parameter')
+        }
+        if (ret.isSet('help')) {
+            printHelp(possibleParams, steps)
+            return null
+        }
+        myEcho(steps, 'Loaded parameters: ' + ret.params)
+        return ret
+    }
+    
+    private static void handleParam(
+        String param, ParamDef[] possibleParams, Params ret, Set<ParamDef> found, Set<String> messages) {
+        
+        boolean valid = false
+        for (int i = 0; i < possibleParams.length; i++) {
+            ParamDef cur = possibleParams[i]
+            if (cur.matches(param)) {
+                valid = true
+                if (found.contains(cur)) {
+                    messages.add('Doppelter Wert fuer den Parameter ' + cur.name)
+                }
+                found.add(cur)
+                ret.params.put(cur.name, cur.parse(param, messages))
+            }
+        }
+        if (!valid) {
+            messages.add('Parametername ungueltig: ' + param)
+        }
+    }
+    
+    private static void printHelp(ParamDef[] possibleParams, def steps) {
+        String msg = 'Moegliche Build-Parameter:\n'
+        for (int i = 0; i < possibleParams.length; i++) {
+            ParamDef pd = possibleParams[i]
+            msg += 'Name: ' + pd.name + ', Typ: ' + pd.type + ', Standardwert: ' +  pd.defaultValue + ', Beschreibung: ' + pd.description + '\n'
+        }
+        myEcho(steps, msg)
+    }
+    
+    private static void myEcho(def steps, String message) {
+        //direkter echo-Aufruf nicht moeglich, weil eigene Klasse.
+        //  Und println geht auch nicht, vermutlich weil ausserhalb eines node
+        steps.invokeMethod('echo', message)
+    }
+    
+    public boolean isSet(String flagName) {
+        return get(flagName)
+    }
+
+    public Object get(String paramName) {
+        Object v = this.params.get(paramName)
+        if (v == null) {
+            throw new RuntimeException('error in pipeline script. invalid parameter name ' + paramName)
+        }
+        return v
+    }
 }
 
 // Wird benötigt, damit das Load (aus dem Jenkins Job, das diese Pipeline läd) nicht hängen bleibt.
