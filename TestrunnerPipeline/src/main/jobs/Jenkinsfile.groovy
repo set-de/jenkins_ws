@@ -62,6 +62,10 @@ node(params.get('node')) {
 		try {
 			nodeSetUp()
 
+			milestone label: 'Beginn'
+			//hier wird mit Label gearbeitet, damit mehrere parallele Laeufe moeglich sind
+			lock(inversePrecedence: true, quantity: 1, label: env.JOB_BASE_NAME + '_CheckCommit-Label') {
+			milestone label: 'CheckCommit-Lock erhalten'
 			stage('Checkout') {
 
 				parallel(
@@ -190,8 +194,11 @@ node(params.get('node')) {
 					)
 				}
 			}
+			}
 
-			stage ('Systemtests local and compile Manual') {
+			lock(inversePrecedence: true, quantity: 1, resource: env.JOB_BASE_NAME + '_Systemtests-Local-Lock') {
+			milestone label: 'Systemtests-Local-Lock erhalten'
+			stage ('Systemtests local, Compile Manual und Unit-Tests remote') {
 
 				parallel(
 					'Compile Manual': {
@@ -280,16 +287,27 @@ node(params.get('node')) {
 						} else {
 							echo 'Skipping SystemtestReplikation'
 						}
+					},
+					'Unit-Tests Remote': {
+						if (!params.isSet('withoutUnitTestsAix')) {
+							echo 'UnitTests Testsysteme DUMMY...'
+							sleep time: 60, unit: 'MINUTES'
+						} else {
+							echo 'Skipping Unit-Tests'
+						}
 					}
 				)
 			}
+			}
 
+			lock(inversePrecedence: true, quantity: 1, resource: env.JOB_BASE_NAME + '_Systemtests-Remote-Lock') {
+			milestone label: 'Systemtests-Remote-Lock erhalten'
 			stage('Systemtests Remote') {
-				milestone()
 				parallel(
 					'Systemtests Remote': {
 						if (!params.isSet('withoutSystemTestsAix')) {
 							echo 'SystemTests Testsysteme DUMMY...'
+							sleep time: 200, unit: 'MINUTES'
 							step([$class: 'JUnitResultArchiver', keepLongStdio: true, testResults: "Workspace/**/build/test-results/*.xml,Workspace/reports/junit/*_system_result.xml"])
 						} else {
 							echo 'Skipping Systemtests'
@@ -297,20 +315,10 @@ node(params.get('node')) {
 					}
 				)
 			}
-
-			stage('UnitTests Remote') {
-				milestone()
-				parallel(
-					'Unit-Tests Remote': {
-						if (!params.isSet('withoutUnitTestsAix')) {
-							echo 'UnitTests Testsysteme DUMMY...'
-						} else {
-							echo 'Skipping Unit-Tests'
-						}
-					}
-				)
 			}
 
+			lock(inversePrecedence: true, quantity: 1, resource: env.JOB_BASE_NAME + '_Deploy-Lock') {
+			milestone label: 'Deploy-Lock erhalten'
 			stage('Auslieferung vorbereiten') {
 				milestone()
 				parallel(
@@ -324,6 +332,7 @@ node(params.get('node')) {
 						}
 					}
 				)
+			}
 			}
 
 		} catch (Exception e) {
