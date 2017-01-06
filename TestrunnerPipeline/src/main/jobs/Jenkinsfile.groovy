@@ -42,6 +42,11 @@ Params params = Params.load(
     new ParamDef('resetFindBugsLimits', Boolean.class, Boolean.FALSE, 'deaktiviert den Vergleich der Anzahl der FindBugs-Verstoesse und setzt den Vergleichswert zurueck')
 )
 
+if (params == null) {
+    makeBuildUnstable('help-Parameter verwendet')
+    return this
+}
+
 /**
  * Die eigentliche Pipeline.
  *
@@ -714,7 +719,7 @@ class Params implements Serializable {
         }
         if (ret.isSet('help')) {
             printHelp(possibleParams, steps)
-            throw new RuntimeException('Hilfe ausgeloest')
+            return null
         }
         myEcho(steps, 'Loaded parameters: ' + ret.params)
         return ret
