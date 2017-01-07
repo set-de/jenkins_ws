@@ -17,9 +17,7 @@ Params params = Params.load(
     steps,
     FurtherPipelineParams.toString(),
     new ParamDef('help', Boolean.class, Boolean.FALSE, 'gibt die moeglichen Parameter aus und beendet danach den Build'),
-    //TODO Standardwert durch sinnvollen Wert ersetzen
-    new ParamDef('node', String.class, 'windows', 'Label zur Auswahl des Knotens'),
-    new ParamDef('withoutSvnCleanup', Boolean.class, Boolean.FALSE, 'Bereinigen des Workspace (SVN) deaktivieren'),
+    new ParamDef('node', String.class, 'linux', 'Label zur Auswahl des Knotens'),
     new ParamDef('withoutSvnCheckout', Boolean.class, Boolean.FALSE, 'Aktualisieren des Workspace deaktivieren'),
     new ParamDef('withoutClean', Boolean.class, Boolean.FALSE, 'Gradle clean deaktivieren'),
     new ParamDef('withoutBuild', Boolean.class, Boolean.FALSE, 'Bauen der Komponenten und statische Analysen deaktivieren'),
@@ -56,7 +54,7 @@ class StopBuildException extends Exception implements Serializable {
 
 def continueCheck() {
 	echo "Checking Build-Result: " + currentBuild.result
-	if (currentBuild.result != null) {
+	if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
 		echo "stopping Pipeline"
 		throw new StopBuildException('Test')
 	}
@@ -88,15 +86,7 @@ node(params.get('node')) {
 
                     parallel(
                         'SVN-Checkout': {
-                            // Wenn angefordert erstmal ein cleanup auf dem SVN machen
-						if (!params.isSet('withoutSvnCleanup')) {
-                                run "${env.SVN_BINARY} cleanup Workspace"
-                                run "${env.SVN_BINARY} cleanup program"
-                            } else {
-                                println "Skipping SVN-Cleanup"
-                            }
-
-                            // Dann aus dem SVN Workspace und program auschecken
+                            // Aus dem SVN Workspace und program auschecken
 						if (!params.isSet('withoutSvnCheckout')) {
                                 checkout poll: true, scm: [
                                     $class          : 'SubversionSCM',
@@ -107,7 +97,7 @@ node(params.get('node')) {
                                         [credentialsId: 'jenkins', depthOption: 'infinity', ignoreExternalsOption: true,
                                          local        : 'program',
                                          remote       : "https://svn.intranet.set.de/svn/POSY-Redesign/${Branch}/program@${Revision}"]],
-                                        // workspaceUpdater: [$class: 'UpdateWithCleanUpdater']
+                                         workspaceUpdater: [$class: 'UpdateWithCleanUpdater']
                                 ]
                             } else {
                                 println "Skipping SVN-Checkout"
@@ -425,7 +415,7 @@ void nodeSetUp() {
     // Pfade zu den Binaries von SVN und Gradle setzen
     if (isUnix()) {
         env.GRADLE_BINARY = "${env.WORKSPACE}/Workspace/extern/development/gradle/bin/gradle"
-        env.SVN_BINARY = "svn"
+        env.SVN_BINARY = "${env.WORKSPACE}/program/svn/svn"
     } else {
         env.GRADLE_BINARY = "${env.WORKSPACE}\\Workspace\\extern\\development\\gradle\\bin\\gradle.bat"
         env.SVN_BINARY = "${env.WORKSPACE}\\Workspace\\\\extern\\\\development\\\\subversion-1.8\\svn.exe"
@@ -642,36 +632,38 @@ enum StaticAnalysisType {
 
 def mailToComitters(String info) {
     emailext to: 'as@set.de', // to darf nicht leer oder null sein
-            // recipientProviders: [[$class: 'CulpritsRecipientProvider'], [$class: 'DevelopersRecipientProvider']],
-            subject: "${info} ${currentBuild.result == null ? 'SUCCESSFUL' : currentBuild.result}",
+            recipientProviders: [[$class: 'CulpritsRecipientProvider'], [$class: 'DevelopersRecipientProvider']],
+            subject: "'${env.JOB_NAME} [${env.BUILD_NUMBER}]' - ${info} ${currentBuild.result == null ? 'SUCCESS' : currentBuild.result}",
             body: "Siehe ${env.BUILD_URL}"
 }
 
 def chat(String info) {
-    def col = 'RED'
-    def state = 'UNDEFINED'
+    def col = 'WHITE'
+    def state = currentBuild.result
     switch (currentBuild.result) {
         case 'UNSTABLE':
             col = 'YELLOW'
-            state = 'UNSTABLE'
             break
         case null:
+            state = 'SUCCESS'
+            // fallthru
         case 'SUCCESS':
             col = 'GREEN'
-            state = 'SUCCESSFUL'
             break
         case 'FAILURE':
             col = 'RED'
-            state = 'FAILURE'
+            break
+        case 'NOT_BUILT':
+            col = 'WHITE'
             break
         case 'ABORTED':
-            col = 'RED'
-            state = 'ABORTED'
+            col = 'GRAY'
             break
     }
-    echo "RESULT: ${currentBuild.result}"
+    echo "RESULT: ${state}"
+    def dynamicRecipients = emailextrecipients([[$class: 'CulpritsRecipientProvider'], [$class: 'DevelopersRecipientProvider']])
     hipchatSend (color: col, notify: true,
-        message: "${info} '${env.JOB_NAME} [${env.BUILD_NUMBER}]' ${state} (<a href=\"${env.BUILD_URL}\">View in Jenkins</a>)"
+        message: "'${env.JOB_NAME} [${env.BUILD_NUMBER}]' - ${info} ${state} (<a href=\"${env.BUILD_URL}\">View in Jenkins</a>)<br/>Mail erhalten: ${dynamicRecipients}"
     )
 }
 
