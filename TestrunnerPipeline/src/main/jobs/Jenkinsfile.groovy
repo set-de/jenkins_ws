@@ -634,7 +634,7 @@ def mailToComitters(String info) {
     emailext to: 'as@set.de', // to darf nicht leer oder null sein
             recipientProviders: [[$class: 'CulpritsRecipientProvider'], [$class: 'DevelopersRecipientProvider']],
             subject: "'${env.JOB_NAME} [${env.BUILD_NUMBER}]' - ${info} ${currentBuild.result == null ? 'SUCCESS' : currentBuild.result}",
-            body: "Siehe ${env.BUILD_URL}"
+            body: "Rev ${env.SVN_REVISION} - Siehe ${env.BUILD_URL}"
 }
 
 def chat(String info) {
@@ -663,7 +663,7 @@ def chat(String info) {
     echo "RESULT: ${state}"
     def dynamicRecipients = emailextrecipients([[$class: 'CulpritsRecipientProvider'], [$class: 'DevelopersRecipientProvider']])
     hipchatSend (color: col, notify: true,
-        message: "'${env.JOB_NAME} [${env.BUILD_NUMBER}]' - ${info} ${state} (<a href=\"${env.BUILD_URL}\">View in Jenkins</a>)<br/>Mail erhalten: ${dynamicRecipients}"
+        message: "'${env.JOB_NAME} [${env.BUILD_NUMBER}]' - ${info} ${state} (<a href=\"${env.BUILD_URL}\">View in Jenkins</a>)<br/>Revision ${env.SVN_REVISION}<br/>Mail erhalten: ${dynamicRecipients}"
     )
 }
 
