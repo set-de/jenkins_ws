@@ -6,11 +6,6 @@
 import java.text.SimpleDateFormat
 
 /**
- * Liste der ermittelten SVN-Properties.
- */
-svn_properties = [:]
-
-/**
  * Laden der Parameter (und gleichzeitig Uebersicht ueber die moeglichen Parameter).
  */
 Params params = Params.load(
@@ -104,9 +99,11 @@ node(params.get('node')) {
                             }
 
                             // Nun die SVN-Informationen besorgen und als Umgebungsvariablen setzen
-                            env.SVN_REVISION = getSvnRev('Workspace')
+                            def infos = svninfo 'Workspace'
+                            println "Retrieved svn info: $infos"
+                            env.SVN_REVISION = infos['REVISION']
                             println "SVN_REVISION: ${env.SVN_REVISION}"
-                            env.SVN_URL = getSvnUrl('Workspace')
+                            env.SVN_URL = infos['URL']
                             println "SVN_URL: ${env.SVN_URL}"
                         }
                     )
@@ -460,47 +457,6 @@ void run(String linux, String windows = null) {
     } else {
         bat windows != null ? windows : linux
     }
-}
-
-/**
- * SVN-Informatationen auslesen und bereitstellen. Wird intern benutzt.
- */
-void initSvnInfo(String path) {
-    if (!svn_properties.isEmpty()) return
-    def tmpFileName = pwd(tmp:true) + '/SVNINFO'
-    File tmpFile = new File(tmpFileName)
-    try {
-        run "${env.SVN_BINARY} info ${path} > ${tmpFileName}"
-        def info = readFile(tmpFileName)
-        String[] parts = info.split('\n')
-        for (int i = 0; i < parts.length; i++) {
-            String[] line = parts[i].split(':')
-            if (line.size() >= 2) {
-                def key = line[0].trim().toUpperCase()
-                def value = Arrays.copyOfRange(line as String[], 1, line.size()).join(':').trim()
-                println "SVN-Property: ${key} = ${value}"
-                svn_properties[key] = value
-            }
-        }
-    } finally {
-        tmpFile.delete()
-    }
-}
-
-/**
- * Liefert die SVN-Revision.
- */
-String getSvnRev(String path) {
-    initSvnInfo(path)
-    return svn_properties['REVISION']
-}
-
-/**
- * Liefert die SVN-URL.
- */
-String getSvnUrl(String path) {
-    initSvnInfo(path)
-    return svn_properties['URL']
 }
 
 /**
