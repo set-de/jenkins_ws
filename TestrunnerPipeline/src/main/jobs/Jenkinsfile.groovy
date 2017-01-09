@@ -521,7 +521,7 @@ def gradle(Map<String, Object> configuration) {
     call.addAll(excludes.collect({
         "-x $it"
     }))
-    callGradle(workers, call)
+    callGradle(workers, call.join(' '))
 }
 
 /**
