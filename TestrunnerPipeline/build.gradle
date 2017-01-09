@@ -4,9 +4,16 @@ plugins {
 }
 
 apply plugin: 'groovy'
+apply from: 'gradle/sync-plugins.gradle'
 
 ext {
     workspace = project.hasProperty('workspace') ? project.property('workspace') : System.getenv('WORKSPACE_HOME')
+}
+
+jenkinsRemote {
+    url = 'http://localhost:8080'
+    username = 'admin'
+    password = '553aa101b0a642b0a70be0889d080712'
 }
 
 sourceSets {

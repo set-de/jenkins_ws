@@ -1,0 +1,36 @@
+import groovy.json.JsonSlurper
+
+class JenkinsRemoteExtension {
+    String url
+    String username
+    String password
+}
+
+def jenkinsExt = project.extensions.create('jenkinsRemote', JenkinsRemoteExtension)
+
+task updatePluginsFromRemote() {
+
+    doLast {
+        def jenkinsUrl = jenkinsExt.url
+        def user = jenkinsExt.username
+        def password = jenkinsExt.password
+        def credentials = "$user:$password"
+        def auth = Base64.encoder.encodeToString(credentials.bytes)
+
+        def url = "${jenkinsUrl}/pluginManager/api/json?depth=1".toURL()
+        HttpURLConnection connection = url.openConnection()
+        connection.setRequestProperty("Authorization", "Basic $auth")
+
+        def slurper = new JsonSlurper()
+        def result = slurper.parse(connection.inputStream)
+        def plugins = result.plugins.findAll {
+            it.enabled && it.active
+        }.collect {
+            "org.jenkins-ci.plugins:${it.shortName}:${it.version}"
+        }
+
+        plugins.each {
+            println it
+        }
+    }
+}
