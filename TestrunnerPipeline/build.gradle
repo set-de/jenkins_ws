@@ -7,7 +7,8 @@ apply plugin: 'groovy'
 apply from: 'gradle/sync-plugins.gradle'
 
 ext {
-    workspace = project.hasProperty('workspace') ? project.property('workspace') : System.getenv('WORKSPACE_HOME')
+    def ws = project.hasProperty('workspace') ? project.property('workspace') : System.getenv('WORKSPACE_HOME')
+    workspace = relativeToProject(ws as File).toString()
 }
 
 jenkinsRemote {
@@ -67,5 +68,10 @@ docker {
 dockerRun {
     name 'test-jenkins'
     image project.imageName
+    volumes "$workspace": '/tmp/ws'
     ports '8080:8080'
+}
+
+File relativeToProject(File workspace) {
+    projectDir.toPath().relativize(workspace.toPath()).toFile()
 }

@@ -6,8 +6,8 @@ USER root
 #ADD $workspace /tmp/ws
 # COPY src/jobs/
 COPY plugins /usr/share/jenkins/ref/plugins
-COPY src/main/jobs/Jenkinsfile.groovy /tmp/ws/
-RUN chown -R jenkins:jenkins /tmp/ws /usr/share/jenkins/ref/plugins
+COPY src/main/jobs/Jenkinsfile.groovy /tmp/jobfile
+RUN chown -R jenkins:jenkins /tmp/jobfile /usr/share/jenkins/ref/plugins
 
 USER jenkins
 
