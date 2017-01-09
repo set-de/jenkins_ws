@@ -400,7 +400,7 @@ void nodeSetUp() {
     // JAVA zum Bauen und Testen
     if (isUnix()) {
         env.JAVA_HOME = "${env.WORKSPACE}/program/java7"
-        env.JAVA_BINARY = "${JAVA_HOME}/bin/java"
+        env.JAVA_BINARY = "${env.JAVA_HOME}/bin/java"
     } else {
         if (env.JAVA_HOME == null) {
             env.JAVA_HOME = 'C:\\Program Files\\Java\\jdk1.7.0_79'
