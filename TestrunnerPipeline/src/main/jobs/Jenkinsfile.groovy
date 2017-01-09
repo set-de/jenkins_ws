@@ -482,7 +482,7 @@ void nodeSetUp() {
  * @param linux der Befehl für Linux und, falls nur dieser angegeben, auch für Windows.
  * @param windows optional der alternative Befehl für Windows
  */
-void run(String linux, String windows = null) {
+def run(String linux, String windows = null) {
     if (isUnix()) {
         sh linux
     } else {
@@ -497,7 +497,7 @@ void run(String linux, String windows = null) {
  * @param args Die zu bauenden Tasks. Anhand der Globalen Variablen <code>tasks</code> werden alle nicht angegebenen
  *          Tasks ausgeschaltet.
  */
-void callGradle(int workers, String tasks) {
+def callGradle(int workers, String tasks) {
     dir('Workspace/rootProject') {
         def max_workers = workers > 0 ? "--parallel --max-workers=${workers}" : ''
         def jvm_args = '-server -Xmx1G -Xms1G -XX:ReservedCodeCacheSize=1G -XX:+DisableExplicitGC -XX:MaxPermSize=1G -XX:PermSize=256m -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:+CMSPermGenSweepingEnabled'
@@ -509,7 +509,7 @@ void callGradle(int workers, String tasks) {
 /**
  * Gradle aufrufen.
  */
-void gradle(Map<String, Object> configuration) {
+def gradle(Map<String, Object> configuration) {
     def tasks = configuration['tasks']
     def excludes = configuration['excludes'] ? configuration['excludes'] : []
     def workers = configuration['workers'] ? configuration['workers'] : 0
@@ -527,14 +527,14 @@ void gradle(Map<String, Object> configuration) {
 /**
  * Der Pfad-Separator ist vom Knoten abhängig. Files.pathSep bezieht sich auf den Master.
  */
-String pathSep() {
+def pathSep() {
     isUnix() ? ':' : ';'
 }
 
 /**
  * Der File-Separator ist vom Knoten abhängig. Files.fileSep bezieht sich auf den Master.
  */
-String fileSep() {
+def fileSep() {
     isUnix() ? '/' : '\\'
 }
 
