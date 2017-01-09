@@ -1,0 +1,92 @@
+node('linux') {
+    
+    results = []
+
+    try {
+
+        myStage('stage0') {
+            echo 'meiner'
+        }
+        
+        myStage('stage1') {
+            echo 'toller step'
+        }
+
+        myStage('stage2') {
+            echo 'nicht so toller step'
+            currentBuild.result = 'UNSTABLE'
+        }
+
+        myStage('stage3') {
+            echo 'blöder step'
+            sh 'exit 1'
+        }
+
+    } finally {
+        
+        chat('Testergebnis', joinResults())
+        
+    }   
+    
+}
+
+def joinResults() {
+    String res = ''
+    for (int i = 0; i < results.size(); i++) { 
+        def entry = results.get(i);
+        res += 'Stage \'' + entry[0] + '\' : '  + entry[1] + '<br/>'
+    }
+    return res
+}
+
+def effResult() {
+    return currentBuild.result == null ? 'SUCCESS' :  currentBuild.result;
+}
+
+def myStage(String name, Closure closure) {
+    try {
+        stage(name) {
+            closure()
+        }
+    } catch (Exception e) {
+        currentBuild.result = 'FAILURE'            
+        throw e
+    } finally {
+        results.add([name, effResult()])
+    }
+}
+
+def chat(String info, String res) {
+    def col = 'WHITE'
+    def state = currentBuild.result
+    switch (currentBuild.result) {
+        case 'UNSTABLE':
+            col = 'YELLOW'
+            break
+        case null:
+            state = 'SUCCESS'
+            // fallthru
+        case 'SUCCESS':
+            col = 'GREEN'
+            break
+        case 'FAILURE':
+            col = 'RED'
+            break
+        case 'NOT_BUILT':
+            col = 'WHITE'
+            break
+        case 'ABORTED':
+            col = 'GRAY'
+            break
+    }
+    echo "RESULT: ${state}"
+    def dynamicRecipients = emailextrecipients([[$class: 'CulpritsRecipientProvider'], [$class: 'DevelopersRecipientProvider']])
+    hipchatSend (color: col, notify: true,
+        message: "'${env.JOB_NAME} [${env.BUILD_NUMBER}]' " + 
+            "- ${info} ${state} " +
+            "(<a href=\"${env.BUILD_URL}\">View in Jenkins</a>)<br/>" +
+            "Revision ${env.SVN_REVISION}<br/>" +
+            "${res}" +
+            "Mail erhalten: ${dynamicRecipients}" 
+    )
+}
