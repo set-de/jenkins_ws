@@ -128,20 +128,20 @@ node(params.get('node')) {
                         'build': {
 
                             def tasks = []
+                            def excludes = []
 
-							if (!params.isSet('withoutStaticAnalysis')) {
-								tasks.add('checkBuildscripts')
+							if (params.isSet('withoutStaticAnalysis')) {
+                                excludes += 'check'
 							}
 
 							if (!params.isSet('withoutBuild')) {
 								tasks.add('buildAllComponents')
 								if (params.isSet('withoutGwtCompile')) {
-										tasks.add('-x compileGwt')
-										tasks.add('-x test')
+                                    excludes += 'compileGwt'
 								}
 
 								if (!tasks.isEmpty()) {
-									callGradle(0, tasks.join(' '))
+                                    gradle tasks: tasks, excludes: excludes
 								} else {
 									println "No gradle tasks to execute"
 								}
@@ -517,6 +517,21 @@ void callGradle(int workers, String tasks) {
 
         run "${env.GRADLE_BINARY} --no-daemon -s -PsetBuildDate=${env.BUILD_DATE} -Dorg.gradle.jvmargs=\"${jvm_args}\" ${max_workers} $tasks"
     }
+}
+
+void gradle(Map<String, Object> configuration) {
+    def tasks = configuration['tasks']
+    def excludes = configuration['excludes'] ? configuration['excludes'] : []
+    def workers = configuration['workers'] ? configuration['workers'] : 0
+    def args = configuration['args'] ? configuration['args'] : []
+
+    def call = []
+    call.addAll(args)
+    call.addAll(tasks)
+    call.addAll(excludes.collect({
+        "-x $it"
+    }))
+    callGradle(workers, call)
 }
 
 /**
