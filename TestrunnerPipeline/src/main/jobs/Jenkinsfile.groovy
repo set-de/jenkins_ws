@@ -381,7 +381,7 @@ def stage_system_tests_manual_unit_remote(Params params) {
 
                 echo 'Executing remote Unit-Tests...'
                 parallel(
-                        'zos': {
+                        'UnitTests ZOS': {
                             if (!params.isSet('withoutUnitTestsZos')) {
                                 dir("${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools") {
                                     echo 'Executing remote Unit-Tests on z/OS...'
@@ -392,7 +392,7 @@ def stage_system_tests_manual_unit_remote(Params params) {
                                 echo 'Skipping Unittests on z/OS...'
                             }
                         },
-                        'solaris': {
+                        'UnitTests Solaris': {
                             if (!params.isSet('withoutUnitTestsSolaris')) {
                                 dir("${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools") {
                                     echo 'Executing remote Unit-Tests on Solaris...'
@@ -403,7 +403,7 @@ def stage_system_tests_manual_unit_remote(Params params) {
                                 echo 'Skipping Unittests on Solaris...'
                             }
                         },
-                        'aix': {
+                        'UnitTests AIX': {
                             if (!params.isSet('withoutUnitTestsAix')) {
                                 dir("${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools") {
                                     echo 'Executing remote Unit-Tests on AIX...'
@@ -424,15 +424,66 @@ def stage_system_tests_manual_unit_remote(Params params) {
  */
 def stage_system_tests_remote(Params params) {
     parallel(
-            'Systemtests Remote': {
-                if (!params.isSet('withoutSystemTestsAix')) {
-                    echo 'SystemTests Testsysteme DUMMY...'
-                    sleep time: 200, unit: 'MINUTES'
-                    step([$class: 'JUnitResultArchiver', keepLongStdio: true, testResults: "Workspace/**/build/test-results/*.xml,Workspace/reports/junit/*_system_result.xml"])
-                } else {
-                    echo 'Skipping Systemtests'
-                }
+        'Systemtests AIX': {
+            if (!params.isSet('withoutSystemTestsAix')) {
+                testrunner([
+                        applicationProperties: "${TESTRUNNER_APPLICATION}",
+                        assertionsEnabled    : true,
+                        clusters             : 'aix',
+                        instrumented         : true,
+                        javaCommand          : "java",
+                        reportPath           : "${env.WORKSPACE}/Workspace/report/",
+                        statusServerPorts    : '1236',
+                        testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle-Replikation",
+                        testrunnerJar        : 'Testtools.jar',
+                        testrunnerMainClass  : 'de.setsoftware.posy.testrunner.TestrunnerMain',
+                        testrunnerPath       : "${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools",
+                        testrunnerUsers      : "H3"
+                ])
+            } else {
+                echo 'Skipping Systemtests AIX'
             }
+        },
+        'Systemtests Solaris': {
+            if (!params.isSet('withoutSystemTestsSolaris')) {
+                testrunner([
+                        applicationProperties: "${TESTRUNNER_APPLICATION}",
+                        assertionsEnabled    : true,
+                        clusters             : 'solaris',
+                        instrumented         : true,
+                        javaCommand          : "java",
+                        reportPath           : "${env.WORKSPACE}/Workspace/report/",
+                        statusServerPorts    : '1236',
+                        testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle-Replikation",
+                        testrunnerJar        : 'Testtools.jar',
+                        testrunnerMainClass  : 'de.setsoftware.posy.testrunner.TestrunnerMain',
+                        testrunnerPath       : "${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools",
+                        testrunnerUsers      : "H4"
+                ])
+            } else {
+                echo 'Skipping Systemtests Solaris'
+            }
+        },
+        'Systemtests ZOS': {
+            if (!params.isSet('withoutSystemTestsZos')) {
+                testrunner([
+                        applicationProperties: "${TESTRUNNER_APPLICATION}",
+                        assertionsEnabled    : true,
+                        clusters             : 'zos',
+                        instrumented         : true,
+                        javaCommand          : "java",
+                        reportPath           : "${env.WORKSPACE}/Workspace/report/",
+                        statusServerPorts    : '1236',
+                        testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle-Replikation",
+                        testrunnerJar        : 'Testtools.jar',
+                        testrunnerMainClass  : 'de.setsoftware.posy.testrunner.TestrunnerMain',
+                        testrunnerPath       : "${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools",
+                        testrunnerUsers      : "H5"
+                ])
+            } else {
+                echo 'Skipping Systemtests ZOS'
+            }
+        }
     )
 }
 /**
