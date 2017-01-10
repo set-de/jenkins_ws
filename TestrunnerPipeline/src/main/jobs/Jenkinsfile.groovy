@@ -282,7 +282,7 @@ def stage_system_tests_manual_unit_remote(Params params) {
             },
             'Systemtests local': {
                 if (!params.isSet('withoutSystemTestsLinux')) {
-                    step([$class               : 'TestrunnerBuilder',
+					testrunner([
                           applicationProperties: "${TESTRUNNER_APPLICATION}",
                           assertionsEnabled    : true,
                           clusters             : "${TESTRUNNER_CLUSTER}",
@@ -302,7 +302,7 @@ def stage_system_tests_manual_unit_remote(Params params) {
             },
             'Systemtests Plugins': {
                 if (!params.isSet('withoutPluginTestsLinux')) {
-                    step([$class               : 'TestrunnerBuilder',
+					testrunner([
                           applicationProperties: "${TESTRUNNER_APPLICATION}",
                           assertionsEnabled    : true,
                           clusters             : "${TESTRUNNER_CLUSTER}",
@@ -322,7 +322,7 @@ def stage_system_tests_manual_unit_remote(Params params) {
             },
             'Systemtests Replikation': {
                 if (!params.isSet('withoutReplicationTestsLinux')) {
-                    step([$class               : 'TestrunnerBuilder',
+					testrunner([
                           applicationProperties: "${TESTRUNNER_APPLICATION}",
                           assertionsEnabled    : true,
                           clusters             : "${TESTRUNNER_CLUSTER}",
