@@ -63,7 +63,7 @@ params = Params.load(
 )
 
 if (params == null) {
-    echo 'Der help-Parameter wurde verwendet. Build wird UNSTABLE.'
+    echo 'The help-Parameter was used. Build will be UNSTABLE.'
     currentBuild.result = "UNSTABLE"
     return this
 }
@@ -98,16 +98,16 @@ timestamps {
 
                     milestone label: 'CheckCommit-Lock erhalten'
 
-                    extendedStage('Checkout') {
-                        stage_checkout(params)
+                    extendedStage('Checkout and Read SVN-Infos') {
+                        stage_checkout()
                     }
 
-                    extendedStage('Build Components and Static Analysis') {
-                        stage_build(params)
+                    extendedStage('Build, Static Analysis, Unit-Tests') {
+                        stage_build()
                     }
 
-                    extendedStage('Get Results of Static Analysis') {
-                        stage_get_static_analysis_results(params)
+                    extendedStage('Collect Static Analysis and Test Results') {
+                        stage_get_static_analysis_results()
                     }
 
                 }
@@ -122,8 +122,8 @@ timestamps {
 
                 milestone label: 'Systemtests-Local-Lock erhalten'
 
-                extendedStage('Systemtests local, Compile Manual und Unit-Tests remote') {
-                    stage_system_tests_manual_unit_remote(params)
+                extendedStage('Systemtests Local, Compile Manual, Unit-Tests Remote') {
+                    stage_system_tests_manual_unit_remote()
                 }
 
             }
@@ -133,21 +133,21 @@ timestamps {
                 milestone label: 'Systemtests-Remote-Lock erhalten'
 
                 extendedStage('Systemtests Remote') {
-                    stage_system_tests_remote(params)
+                    stage_system_tests_remote()
                 }
 
             }
 
             extendedStage('Collect Coverage') {
-                stage_getTestCoverage(params)
+                stage_getTestCoverage()
             }
 
             lock(inversePrecedence: true, quantity: 1, resource: env.JOB_BASE_NAME + '_Deploy-Lock') {
 
                 milestone label: 'Deploy-Lock erhalten'
 
-                extendedStage('Auslieferung vorbereiten') {
-                    stage_deploy(params)
+                extendedStage('Deployment') {
+                    stage_deploy()
                 }
 
             }
@@ -171,7 +171,7 @@ timestamps {
 /**
  * SVN-Checkout und SVN-Infos ermitteln.
  */
-def stage_checkout(Params params) {
+def stage_checkout() {
     parallel(
             'SVN-Checkout': {
                 // Aus dem SVN Workspace und program auschecken
@@ -188,7 +188,7 @@ def stage_checkout(Params params) {
                             workspaceUpdater: [$class: 'UpdateWithCleanUpdater']
                     ]
                 } else {
-                    println "Skipping SVN-Checkout"
+                    echo "Skipping SVN-Checkout"
                 }
             }
     )
@@ -196,12 +196,12 @@ def stage_checkout(Params params) {
     parallel(
             'SVN-Infos': {
                 // Nun die SVN-Informationen besorgen und als Umgebungsvariablen setzen
-                //def infos = svninfo 'Workspace'
-                //println "Retrieved svn info: $infos"
-                env.SVN_REVISION = 12345 //infos['REVISION']
-                //println "SVN_REVISION: ${env.SVN_REVISION}"
-                env.SVN_URL = "https://svn.intranet.set.de/svn/POSY-Redesign/" //infos['URL']
-                println "SVN_URL: ${env.SVN_URL}"
+                def infos = svninfo 'Workspace'
+                echo "Retrieved svn info: $infos"
+                env.SVN_REVISION = infos['REVISION']
+                echo "SVN_REVISION: ${env.SVN_REVISION}"
+                env.SVN_URL = infos['URL']
+                echo "SVN_URL: ${env.SVN_URL}"
             }
     )
 }
@@ -209,7 +209,7 @@ def stage_checkout(Params params) {
 /**
  * Bauen und statische Analyse ausführen.
  */
-def stage_build(Params params) {
+def stage_build() {
     parallel(
             'clean': {
                 if (!params.isSet('withoutClean')) {
@@ -237,7 +237,7 @@ def stage_build(Params params) {
                     if (!tasks.isEmpty()) {
                         gradle tasks: tasks, excludes: excludes
                     } else {
-                        println "No gradle tasks to execute"
+                        echo "No gradle tasks to execute"
                     }
                 }
             }
@@ -247,7 +247,7 @@ def stage_build(Params params) {
 /**
  * Ergebnisse der statischen Analyse ermitteln.
  */
-def stage_get_static_analysis_results(Params params) {
+def stage_get_static_analysis_results() {
     if (!params.isSet('withoutStaticAnalysis')) {
         parallel(
                 'Get Unit Test Results': {
@@ -278,11 +278,11 @@ def stage_get_static_analysis_results(Params params) {
 /**
  * Lokale Systemtests ausführen, Handbuch erstellen und Remote-Unit-Tests durchführen.
  */
-def stage_system_tests_manual_unit_remote(Params params) {
+def stage_system_tests_manual_unit_remote() {
     parallel(
             'Compile Manual': {
                 if (!params.isSet('withoutCompileManual')) {
-                    println "Stashing flare-input"
+                    echo "Stashing flare-input"
                     stash includes: 'Workspace/POSY-Online-Hilfe/', name: 'flare-input'
 
                     node('windows && flare') {
@@ -291,9 +291,9 @@ def stage_system_tests_manual_unit_remote(Params params) {
                         dir('Workspace/POSY-Online-Hilfe') {
                             bat 'buildFlare.cmd'
                         }
-                        println "Stashing flare-output"
+                        echo "Stashing flare-output"
                         stash includes: 'Workspace/POSY-Online-Hilfe/POSY-MailManagement/Output/jenkins/', excludes: '**/Temporary/**', name: 'flare-output'
-                        println "Archiving Flare logs"
+                        echo "Archiving Flare logs"
                         archiveArtifacts 'Workspace/POSY-Online-Hilfe/POSY-MailManagement/Output/**/*.mclog'
                     }
                     unstash 'flare-output'
@@ -304,7 +304,7 @@ def stage_system_tests_manual_unit_remote(Params params) {
                     callGradle(0, "injectManual")
 
                 } else {
-                    println "Skipping compile manual"
+                    echo 'Skipping Compile Manual'
                 }
             },
             'Systemtests local': {
@@ -429,7 +429,7 @@ def stage_system_tests_manual_unit_remote(Params params) {
 /**
  * Remote-Systemtests durchführen.
  */
-def stage_system_tests_remote(Params params) {
+def stage_system_tests_remote() {
     parallel(
         'Systemtests AIX': {
             if (!params.isSet('withoutSystemTestsAix')) {
@@ -493,10 +493,11 @@ def stage_system_tests_remote(Params params) {
         }
     )
 }
+
 /**
  * Stage zum Aufsammeln der JaCoCo Testabedeckung aus den Testfällen.
  */
-def stage_getTestCoverage(Params params) {
+def stage_getTestCoverage() {
     parallel(
         'Coverage' : {
             if (!params.isSet('withoutCoverage')) {
@@ -535,7 +536,7 @@ def stage_getTestCoverage(Params params) {
 /**
  * Version bereitstellen.
  */
-def stage_deploy(Params params) {
+def stage_deploy() {
     parallel(
             'Deployment (optional)': {
                 if (currentBuild.description != null && currentBuild.description.contains("Auslieferbereit")) {
@@ -587,7 +588,7 @@ void globalSetUp() {
     // Build-Date für gesamte Pipeline festlegen
     if (env.BUILD_DATE == null) {
         env.BUILD_DATE = new SimpleDateFormat('yyyy-MM-dd_HH-mm-ss', Locale.GERMAN).format(new Date())
-        println "BUILD_DATE: ${env.BUILD_DATE}"
+        echo "BUILD_DATE: ${env.BUILD_DATE}"
     }
 
     // Einstellungen für den Testrunner machen
@@ -697,7 +698,7 @@ def fileSep() {
  * Unit-Tests einsammeln.
  */
 def getUnit(StaticAnalysisType type) {
-    println "Collecting " + type.name + "..."
+    echo "Collecting " + type.name + "..."
     step([$class: 'JUnitResultArchiver', keepLongStdio: true, testResults: type.pattern])
     archiveArtifacts allowEmptyArchive: true, artifacts: type.pattern, defaultExcludes: false
 }
@@ -706,7 +707,7 @@ def getUnit(StaticAnalysisType type) {
  * Artefakte einsammeln.
  */
 def getAsArtefact(StaticAnalysisType type) {
-    println "Collecting " + type.name + "..."
+    echo "Collecting " + type.name + "..."
     archiveArtifacts allowEmptyArchive: true, artifacts: type.pattern, defaultExcludes: false
 }
 
@@ -714,7 +715,7 @@ def getAsArtefact(StaticAnalysisType type) {
  * Ergebnisse von Checkstyle einsammeln.
  */
 def getCheckstyle(StaticAnalysisType type, boolean resetLimits) {
-    println "Collecting " + type.name + "..."
+    echo "Collecting " + type.name + "..."
     //hier sind aktuell nur Grenzwerte fuer neue Warnungen aktiviert (also sowas aehnliches wie Ratcheting)
     step([$class                     : 'CheckStylePublisher', defaultEncoding: 'UTF-8', healthy: '', unHealthy: '',
           pattern                    : type.pattern,
@@ -729,7 +730,7 @@ def getCheckstyle(StaticAnalysisType type, boolean resetLimits) {
  * Ergebnisse von Findbugs einsammeln.
  */
 def getFindbugs(StaticAnalysisType type, boolean resetLimits) {
-    println "Collecting " + type.name + "..."
+    echo "Collecting " + type.name + "..."
     //hier sind aktuell nur Grenzwerte fuer neue Warnungen aktiviert (also sowas aehnliches wie Ratcheting)
     step([$class                     : 'FindBugsPublisher', defaultEncoding: 'UTF-8', excludePattern: '', healthy: '', includePattern: '', unHealthy: '',
           pattern                    : type.pattern,
@@ -743,7 +744,7 @@ def getFindbugs(StaticAnalysisType type, boolean resetLimits) {
  * TODO-Suchergebnisse einsammeln.
  */
 def getTodos(StaticAnalysisType type) {
-    println "Collecting " + type.name + "..."
+    echo "Collecting " + type.name + "..."
     step([$class: 'TasksPublisher', high: '^.*(FIXME)(.*)$',
           normal: '^.*(TODO (?:PSY|Auto-generated|implement|8.2|10.6|[0-9]{1,2}|1[0-3][0-9]|140|141|142))(.*)$',
           low   : '^.*(@deprecated)(.*)$', ignoreCase: true, asRegexp: true, excludePattern: '', pattern: type.pattern])
@@ -754,7 +755,7 @@ def getTodos(StaticAnalysisType type) {
  * Compiler-Warnungen einsammeln.
  */
 def getCompilerWarnings(StaticAnalysisType type) {
-    println "Collecting " + type.name + "..."
+    echo "Collecting " + type.name + "..."
     step([$class: 'WarningsPublisher', consoleParsers: [
         [parserName: 'Java Compiler (javac)'],
         [parserName: 'Java Compiler (Eclipse)']
@@ -766,7 +767,7 @@ def getCompilerWarnings(StaticAnalysisType type) {
  * Ergebnisse von Codenarc auswerten.
  */
 def getCodenarc(StaticAnalysisType type) {
-    println "Collecting " + type.name + "..."
+    echo "Collecting " + type.name + "..."
     step([$class          : 'WarningsPublisher', parserConfigurations: [[parserName: 'Codenarc', pattern: type.pattern]],
           unstableTotalAll: '0', canComputeNew: false, canResolveRelativePaths: false])
     archiveArtifacts allowEmptyArchive: true, artifacts: type.pattern, defaultExcludes: false
@@ -974,7 +975,7 @@ class Params implements Serializable {
             if (cur.matches(param)) {
                 valid = true
                 if (found.contains(cur)) {
-                    messages.add('Doppelter Wert fuer den Parameter ' + cur.name)
+                    messages.add('Duplicate value for the parameter ' + cur.name)
                 }
                 found.add(cur)
                 ret.params.put(cur.name, cur.parse(param, messages))
@@ -986,10 +987,10 @@ class Params implements Serializable {
     }
 
     private static void printHelp(ParamDef[] possibleParams, def steps) {
-        String msg = 'Moegliche Build-Parameter:\n'
+        String msg = 'Possible Build Parameters:\n'
         for (int i = 0; i < possibleParams.length; i++) {
             ParamDef pd = possibleParams[i]
-            msg += 'Name: ' + pd.name + ', Typ: ' + pd.type + ', Standardwert: ' + pd.defaultValue + ', Beschreibung: ' + pd.description + '\n'
+            msg += 'Name: ' + pd.name + ', Type: ' + pd.type + ', Default-Value: ' + pd.defaultValue + ', Description: ' + pd.description + '\n'
         }
         myEcho(steps, msg)
     }
@@ -1030,7 +1031,7 @@ class StopBuildException extends Exception implements Serializable {
 def continueCheck(String lastStage) {
     echo "Checking Build-Result after Stage '${lastStage}': " + currentBuild.result
     if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
-        echo "stopping Pipeline..."
+        echo "Stopping Pipeline..."
         currentBuild.description += "Pipeline gestoppt nach '${lastStage}'<br/>"
         throw new StopBuildException('Test')
     }
