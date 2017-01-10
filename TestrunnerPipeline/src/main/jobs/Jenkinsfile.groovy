@@ -7,7 +7,7 @@ import java.text.SimpleDateFormat
 /**
  * Laden der Parameter (und gleichzeitig Uebersicht ueber die moeglichen Parameter).
  */
-Params params = Params.load(
+params = Params.load(
         steps,
         FurtherPipelineParams.toString(),
         new ParamDef('help', Boolean.class, Boolean.FALSE, 'gibt die moeglichen Parameter aus und beendet danach den Build'),
@@ -30,7 +30,8 @@ Params params = Params.load(
         new ParamDef('withoutReplicationTestsLinux', Boolean.class, Boolean.FALSE, 'Lokale Replikations-Systemtests (auf Linux) deaktivieren'),
         new ParamDef('withoutGuiTestsLinux', Boolean.class, Boolean.FALSE, 'Lokale GUI-Tests (auf Linux) deaktivieren'),
         new ParamDef('resetCheckstyleLimits', Boolean.class, Boolean.FALSE, 'deaktiviert den Vergleich der Anzahl der Checkstyle-Verstoesse und setzt den Vergleichswert zurueck'),
-        new ParamDef('resetFindBugsLimits', Boolean.class, Boolean.FALSE, 'deaktiviert den Vergleich der Anzahl der FindBugs-Verstoesse und setzt den Vergleichswert zurueck')
+        new ParamDef('resetFindBugsLimits', Boolean.class, Boolean.FALSE, 'deaktiviert den Vergleich der Anzahl der FindBugs-Verstoesse und setzt den Vergleichswert zurueck'),
+		new ParamDef('withoutEcj', Boolean.class, Boolean.FALSE, 'deaktiviert das Kompilieren mit dem Eclipse Compiler')
 )
 
 if (params == null) {
@@ -511,12 +512,29 @@ def run(String linux, String windows = null) {
  *          Tasks ausgeschaltet.
  */
 def callGradle(int workers, String tasks) {
-    dir('Workspace/rootProject') {
-        def max_workers = workers > 0 ? "--parallel --max-workers=${workers}" : ''
-        def jvm_args = '-server -Xmx1G -Xms1G -XX:ReservedCodeCacheSize=1G -XX:+DisableExplicitGC -XX:MaxPermSize=1G -XX:PermSize=256m -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:+CMSPermGenSweepingEnabled'
+	dir('Workspace/rootProject') {
+		def args = []
+		args += '--no-daemon'
+		args += '-s'
+		args += "-PsetBuildDate=${env.BUILD_DATE}"
 
-        run "${env.GRADLE_BINARY} --no-daemon -s -PsetBuildDate=${env.BUILD_DATE} -Dorg.gradle.jvmargs=\"${jvm_args}\" ${max_workers} $tasks"
-    }
+		if (workers > 0) {
+			args += '--parallel'
+			args += '-max-workers=${workers}'
+		}
+
+		if (!params.get('withoutEcj')) {
+			args += '-Pjava.compile.ecj.enabled=true'
+		}
+
+		def jvm_args = '-server -Xmx1G -Xms1G -XX:ReservedCodeCacheSize=1G -XX:+DisableExplicitGC -XX:MaxPermSize=1G -XX:PermSize=256m -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:+CMSPermGenSweepingEnabled'
+		args += "-Dorg.gradle.jvmargs=\"${jvm_args}\""
+		args += tasks
+
+		def command = args.join(' ')
+
+		run "${env.GRADLE_BINARY} ${command}"
+	}
 }
 
 /**
