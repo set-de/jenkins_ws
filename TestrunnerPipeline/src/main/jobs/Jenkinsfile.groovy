@@ -57,7 +57,9 @@ params = Params.load(
         new ParamDef('withoutGuiTestsLinux', Boolean.class, Boolean.FALSE, 'Lokale GUI-Tests (auf Linux) deaktivieren'),
         new ParamDef('resetCheckstyleLimits', Boolean.class, Boolean.FALSE, 'deaktiviert den Vergleich der Anzahl der Checkstyle-Verstoesse und setzt den Vergleichswert zurueck'),
         new ParamDef('resetFindBugsLimits', Boolean.class, Boolean.FALSE, 'deaktiviert den Vergleich der Anzahl der FindBugs-Verstoesse und setzt den Vergleichswert zurueck'),
-        new ParamDef('withoutEcj', Boolean.class, Boolean.FALSE, 'deaktiviert das Kompilieren mit dem Eclipse Compiler')
+        new ParamDef('withoutEcj', Boolean.class, Boolean.FALSE, 'deaktiviert das Kompilieren mit dem Eclipse Compiler'),
+        new ParamDef('withoutCoverage', Boolean.class, Boolean.FALSE, 'Deaktiviert das Ermitteln der Testabdeckung')
+
 )
 
 if (params == null) {
@@ -128,6 +130,10 @@ timestamps {
                     stage_system_tests_remote(params)
                 }
 
+            }
+
+            extendedStage('Collect Coverage') {
+                stage_getTestCoverage(params)
             }
 
             lock(inversePrecedence: true, quantity: 1, resource: env.JOB_BASE_NAME + '_Deploy-Lock') {
@@ -428,6 +434,44 @@ def stage_system_tests_remote(Params params) {
                     echo 'Skipping Systemtests'
                 }
             }
+    )
+}
+/**
+ * Stage zum Aufsammeln der JaCoCo Testabedeckung aus den Testfällen.
+ */
+def stage_getTestCoverage(Params params) {
+    parallel(
+        'Coverage' : {
+            if (!params.isSet('withoutCoverage')) {
+                step([$class                    : 'JacocoPublisher',
+                      changeBuildStatus         : false,
+                      exceptionFilters          : 'de/setsoftware/stdlib/common/ShouldNotHappenError',
+                      exclusionPattern          : '.*/wsdl/.*,.*/bixjab/.*,.*/xml/.*,.*/gen/.*,de/setsoftware/posy/plugins/customerPlugins/VsTestPlugin.*,.*Messages,.*Messages_DE,.*Messages_EN',
+                      execPath                  : 'Workspace/report/coverage/',
+                      inclusionPattern          : 'de/set/.*,de/setsoftware/.*',
+                      javaCommand               : "${env.JAVA_BINARY}",
+                      projectExcludes           : 'GuiTestrunner,Testrunner,UnitTestRunner,POSY-Config-GUI,POSY-Dialog-Basisdaten,POSY-DispatchManagement-GUI,POSY-GUI-Lib,POSY-Viewer-GUI,POSY-PM-StatusView,POSY-PM-Workplace-Plugins,POSY-Workflow-GUI,POSY-Workplace-GUI,POSY-Workplace-Plugins,SET-GUI-Lib,SET-Web-GUI-Lib,POSY-Workstation,SET-CodeAnalysis,POSY-StorageTest,Infrastructure,SET-Tools,POSY-Tools,POSY-Plugins-Gen,POSY-StorageInterface-Gen,POSY-LongTermStorage-Interface-Gen,Gui-Performance-Tests,POSY-GUI-Test-Lib,SET-AspectJ',
+                      reportGeneratorPath       : 'program/jacocoReportGenerator/JacocoReportGenerator.jar',
+                      reportTargetPath          : 'Workspace/report/coverageReport/',
+                      sourceFileEncoding        : 'UTF-8',
+                      workspaceDir              : 'Workspace/',
+                      maximumBranchCoverage     : '0',
+                      maximumClassCoverage      : '0',
+                      maximumComplexityCoverage : '0',
+                      maximumInstructionCoverage: '0',
+                      maximumLineCoverage       : '0',
+                      maximumMethodCoverage     : '0',
+                      minimumBranchCoverage     : '0',
+                      minimumClassCoverage      : '0',
+                      minimumComplexityCoverage : '0',
+                      minimumInstructionCoverage: '0',
+                      minimumLineCoverage       : '0',
+                      minimumMethodCoverage     : '0'
+                ])
+            } else {
+                echo 'Skipping Test Coverage'
+            }
+        }
     )
 }
 
@@ -906,7 +950,7 @@ class Params implements Serializable {
     }
 }
 
-/**
+/**d
  * Exception mit Sonderbehandlung, die benutzt wird, um die Pipeline bei UNSTABLE-Results zu beenden.
  */
 class StopBuildException extends Exception implements Serializable {
