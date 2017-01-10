@@ -159,7 +159,7 @@ timestamps {
         } finally {
             results.add(['Global', effResult()])
             if (!finished) {
-                currentBuild.description += "Pipeline Ende nicht erreicht.<br/>"
+                currentBuild.description += "Pipeline-Ende nicht erreicht.<br/>"
                 results.add(['Pipeline', 'NOT_FINISHED'])
             }    
             notifications('Full Pipeline')
@@ -309,7 +309,7 @@ def stage_system_tests_manual_unit_remote() {
             },
             'Systemtests local': {
                 if (!params.isSet('withoutSystemTestsLinux')) {
-					testrunner([
+                    testrunner([
                           applicationProperties: "${TESTRUNNER_APPLICATION}",
                           assertionsEnabled    : true,
                           clusters             : "${TESTRUNNER_CLUSTER}",
@@ -329,7 +329,7 @@ def stage_system_tests_manual_unit_remote() {
             },
             'Systemtests Plugins': {
                 if (!params.isSet('withoutPluginTestsLinux')) {
-					testrunner([
+                    testrunner([
                           applicationProperties: "${TESTRUNNER_APPLICATION}",
                           assertionsEnabled    : true,
                           clusters             : "${TESTRUNNER_CLUSTER}",
@@ -349,7 +349,7 @@ def stage_system_tests_manual_unit_remote() {
             },
             'Systemtests Replikation': {
                 if (!params.isSet('withoutReplicationTestsLinux')) {
-					testrunner([
+                    testrunner([
                           applicationProperties: "${TESTRUNNER_APPLICATION}",
                           assertionsEnabled    : true,
                           clusters             : "${TESTRUNNER_CLUSTER}",
@@ -383,7 +383,7 @@ def stage_system_tests_manual_unit_remote() {
                 // Die gwt_servlet.jar ans Ende packen, damit unsere eigene Implementierung in den Tests verwendet wird.
                 dir("${env.WORKSPACE}/Workspace/Buildresults/POSY-UnitTestRunner") {
                     echo 'Move gwt-servlet.jar to end of classpath...'
-                    run('mv jars\\gwt-servlet.jar jars\\z_gwt-servlet.jar', 'move /Y jars\\gwt-servlet.jar jars\\z_gwt-servlet.jar')
+                    run('mv jars/gwt-servlet.jar jars/z_gwt-servlet.jar', 'move /Y jars\\gwt-servlet.jar jars\\z_gwt-servlet.jar')
                 }
 
                 echo 'Executing remote Unit-Tests...'
@@ -595,11 +595,13 @@ void globalSetUp() {
     if (isUnix()) {
         JAVA_HOME="${env.WORKSPACE}/program/java7"
         JAVA_BINARY="${JAVA_HOME}/bin/java"
+        GRADLE_BINARY = "${env.WORKSPACE}/Workspace/extern/development/gradle/bin/gradle"
         TESTRUNNER_APPLICATION = "application_jenkins.xml"
         TESTRUNNER_CLUSTER = "local_linux"
     } else {
         JAVA_HOME='C:\\Program Files\\Java\\jdk1.7.0_79'
         JAVA_BINARY="${JAVA_HOME}\\bin\\java.exe"
+        GRADLE_BINARY = "${env.WORKSPACE}\\Workspace\\extern\\development\\gradle\\bin\\gradle.bat"
         TESTRUNNER_APPLICATION = "application_jenkins_windows.xml"
         TESTRUNNER_CLUSTER = "local_components"
     }
@@ -608,9 +610,9 @@ void globalSetUp() {
 
 String createEnvironment() {
     if (isUnix()) {
-        return ["JAVA_HOME=${env.WORKSPACE}/program/java7", "PATH=${env.PATH}:${env.WORKSPACE}/program/java7/bin:${env.WORKSPACE}/Workspace/extern/development/gradle/bin"]
+        return ["JAVA_HOME=${env.WORKSPACE}/program/java7"]
     } else {
-        return ["PATH=${env.PATH};${env.WORKSPACE}/Workspace/extern/development/gradle/bin"]
+        return []
     }
 }
 
@@ -636,30 +638,30 @@ def run(String linux, String windows = null) {
  *          Tasks ausgeschaltet.
  */
 def callGradle(int workers, String tasks) {
-	dir('Workspace/rootProject') {
-		def args = []
-		args += '--no-daemon'
-		args += '-s'
-		args += "-PsetBuildDate=${env.BUILD_DATE}"
+    dir('Workspace/rootProject') {
+        def args = []
+        args += '--no-daemon'
+        args += '-s'
+        args += "-PsetBuildDate=${env.BUILD_DATE}"
         args += '--profile'
 
-		if (workers > 0) {
-			args += '--parallel'
-			args += '-max-workers=${workers}'
-		}
+        if (workers > 0) {
+            args += '--parallel'
+            args += '-max-workers=${workers}'
+        }
 
-		if (!params.get('withoutEcj')) {
-			args += '-Pjava.compile.ecj.enabled=true'
-		}
+        if (!params.get('withoutEcj')) {
+            args += '-Pjava.compile.ecj.enabled=true'
+        }
 
-		def jvm_args = '-server -Xmx1G -Xms1G -XX:ReservedCodeCacheSize=1G -XX:+DisableExplicitGC -XX:MaxPermSize=1G -XX:PermSize=256m -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:+CMSPermGenSweepingEnabled'
-		args += "-Dorg.gradle.jvmargs=\"${jvm_args}\""
-		args += tasks
+        def jvm_args = '-server -Xmx1G -Xms1G -XX:ReservedCodeCacheSize=1G -XX:+DisableExplicitGC -XX:MaxPermSize=1G -XX:PermSize=256m -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:+CMSPermGenSweepingEnabled'
+        args += "-Dorg.gradle.jvmargs=\"${jvm_args}\""
+        args += tasks
 
-		def command = args.join(' ')
+        def command = args.join(' ')
 
-		run("gradle ${command}", "gradle.bat ${command}")
-	}
+        run "${GRADLE_BINARY} ${command}"
+    }
 }
 
 /**
