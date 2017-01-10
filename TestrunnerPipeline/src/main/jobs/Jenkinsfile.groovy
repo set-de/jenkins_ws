@@ -7,11 +7,10 @@ import java.text.SimpleDateFormat
 /**
  * Laden der Parameter (und gleichzeitig Uebersicht ueber die moeglichen Parameter).
  */
-Params params = Params.load(
+params = Params.load(
         steps,
         FurtherPipelineParams.toString(),
         new ParamDef('help', Boolean.class, Boolean.FALSE, 'gibt die moeglichen Parameter aus und beendet danach den Build'),
-        new ParamDef('node', String.class, 'linux', 'Label zur Auswahl des Knotens'),
         new ParamDef('withoutSvnCheckout', Boolean.class, Boolean.FALSE, 'Aktualisieren des Workspace deaktivieren'),
         new ParamDef('withoutClean', Boolean.class, Boolean.FALSE, 'Gradle clean deaktivieren'),
         new ParamDef('withoutBuild', Boolean.class, Boolean.FALSE, 'Bauen der Komponenten und statische Analysen deaktivieren'),
@@ -30,7 +29,8 @@ Params params = Params.load(
         new ParamDef('withoutReplicationTestsLinux', Boolean.class, Boolean.FALSE, 'Lokale Replikations-Systemtests (auf Linux) deaktivieren'),
         new ParamDef('withoutGuiTestsLinux', Boolean.class, Boolean.FALSE, 'Lokale GUI-Tests (auf Linux) deaktivieren'),
         new ParamDef('resetCheckstyleLimits', Boolean.class, Boolean.FALSE, 'deaktiviert den Vergleich der Anzahl der Checkstyle-Verstoesse und setzt den Vergleichswert zurueck'),
-        new ParamDef('resetFindBugsLimits', Boolean.class, Boolean.FALSE, 'deaktiviert den Vergleich der Anzahl der FindBugs-Verstoesse und setzt den Vergleichswert zurueck')
+        new ParamDef('resetFindBugsLimits', Boolean.class, Boolean.FALSE, 'deaktiviert den Vergleich der Anzahl der FindBugs-Verstoesse und setzt den Vergleichswert zurueck'),
+        new ParamDef('withoutEcj', Boolean.class, Boolean.FALSE, 'deaktiviert das Kompilieren mit dem Eclipse Compiler')
 )
 
 if (params == null) {
@@ -39,15 +39,7 @@ if (params == null) {
     return this
 }
 
-/**
- * Ergebnisse der einzelnen Stages.
- */
-results = []
-
-/**
- * Pipeline ordentlich beendet?
- */
-finished = false
+globalSetUp()
 
 /**
  * Die eigentliche Pipeline.
@@ -55,17 +47,16 @@ finished = false
  * Zur besseren Benennung in der "Pipeline-Steps"-Ansicht werden auch einfache Tasks in ein <code>parallel</code>
  * eingebettet. Dies kann später durch Label-Blöcke ersetzt werden, sobald das Feature verfügbar ist.
  *
- * @param NodeZuordnung entsprechend des Build-Parameters.
  */
-node(params.get('node')) {
 
-    timestamps {
+timestamps {
+
+    withEnv(createEnvironment()) {
 
         try {
 
             try {
 
-                nodeSetUp()
 
                 //hier wird mit Label gearbeitet, damit mehrere parallele Laeufe moeglich sind
                 milestone label: 'Beginn'
@@ -135,9 +126,7 @@ node(params.get('node')) {
             results.add(['Global', effResult()])
             notifications('Full Pipeline')
         }
-
     }
-
 }
 
 /**
@@ -286,7 +275,7 @@ def stage_system_tests_manual_unit_remote(Params params) {
                           assertionsEnabled    : true,
                           clusters             : "${TESTRUNNER_CLUSTER}",
                           instrumented         : true,
-                          javaCommand          : "${env.JAVA_BINARY}",
+                          javaCommand          : "java",
                           reportPath           : "${env.WORKSPACE}/Workspace/report/",
                           statusServerPorts    : '1234',
                           testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle",
@@ -306,7 +295,7 @@ def stage_system_tests_manual_unit_remote(Params params) {
                           assertionsEnabled    : true,
                           clusters             : "${TESTRUNNER_CLUSTER}",
                           instrumented         : true,
-                          javaCommand          : "${env.JAVA_BINARY}",
+                          javaCommand          : "java",
                           reportPath           : "${env.WORKSPACE}/Workspace/report/",
                           statusServerPorts    : '1235',
                           testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle-Plugins",
@@ -326,7 +315,7 @@ def stage_system_tests_manual_unit_remote(Params params) {
                           assertionsEnabled    : true,
                           clusters             : "${TESTRUNNER_CLUSTER}",
                           instrumented         : true,
-                          javaCommand          : "${env.JAVA_BINARY}",
+                          javaCommand          : "java",
                           reportPath           : "${env.WORKSPACE}/Workspace/report/",
                           statusServerPorts    : '1236',
                           testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle-Replikation",
@@ -400,81 +389,29 @@ def notifications(String info) {
 }
 
 /**
- * Direkt als Erstes innerhalb einer Node-Closure aufrufen. Es werden diverse Environment-Variablen gesetzt und,
- * falls noch nicht geschehen, das Pipeline-Globale Build-Datum ermittelt:
+ * Direkt als Erstes innerhalb einer Node-Closure aufrufen. Es wird das Pipeline-Globale Build-Datum ermittelt:
  * <ul>
  *     <li><code>BUILD_DATE</code></li>
- *     <li><code>GRADLE_OPTS</code></li>
- *     <li><code>JAVA_HOME</code></li>
- *     <li><code>JAVA_BINARY</code></li>
- *     <li><code>JAVA_OPTS</code></li>
- *     <li><code>WORKSPACE</code></li>
  * </ul>
- * Zuätzlich wird der Pfad knotenspezifisch erweitert, damit folgende Programme gefunden werden:
- * <ul>
- *     <li>Gradle</li>
- *     <li>Subversion</li>
- * </ul>
- * Unter Linux wird auch der LD_LIBRARY_PATH erweitert.
  *
  * Für die Ausführung der Systemtestfälle werden die folgenden Variablen gesetzt
  * <ul>
  *     <li><code>TESTRUNNER_APPLICATION</code></li>
  *     <li><code>TESTRUNNER_CLUSTER</code></li>
- *     <li><code>TESTRUNNER_USER</code></li>
  * </ul>
  */
-void nodeSetUp() {
+void globalSetUp() {
 
-    println 'starting node setup'
+    // Ergebnisse der einzelnen Stages.
+    results = []
 
-    // Environment-Variable für den Jenkins-Workspace
-    env.WORKSPACE = pwd()
-    println "WORKSPACE: ${env.WORKSPACE}"
+    // Pipeline ordentlich beendet?
+    finished = false
 
     // Build-Date für gesamte Pipeline festlegen
-    if (env.BUILD_DATE == null) {
-        env.BUILD_DATE = new SimpleDateFormat('yyyy-MM-dd_HH-mm-ss', Locale.GERMAN).format(new Date())
-        println "BUILD_DATE: ${env.BUILD_DATE}"
-    }
-
-    // JAVA zum Bauen und Testen
-    if (isUnix()) {
-        env.JAVA_HOME = "${env.WORKSPACE}/program/java7"
-        env.JAVA_BINARY = "${env.JAVA_HOME}/bin/java"
-    } else {
-        if (env.JAVA_HOME == null) {
-            env.JAVA_HOME = 'C:\\Program Files\\Java\\jdk1.7.0_79'
-        }
-        env.JAVA_BINARY = "${JAVA_HOME}/bin/java.exe"
-    }
-
-    // Speicherverbrauch etwas minimieren im Gegensatz zu lokalen Builds
-    env.GRADLE_OPTS = '-Xmx4G'
-    env.JAVA_OPTS = '-Xmx4G'
-
-    // Pfade zu den Binaries von SVN und Gradle setzen
-    if (isUnix()) {
-        env.GRADLE_BINARY = "${env.WORKSPACE}/Workspace/extern/development/gradle/bin/gradle"
-        env.SVN_BINARY = "${env.WORKSPACE}/program/svn/svn"
-    } else {
-        env.GRADLE_BINARY = "${env.WORKSPACE}\\Workspace\\extern\\development\\gradle\\bin\\gradle.bat"
-        env.SVN_BINARY = "${env.WORKSPACE}\\Workspace\\\\extern\\\\development\\\\subversion-1.8\\svn.exe"
-    }
-
-    // Lib-Path unter Linux ergänzen
-    if (isUnix()) {
-        // Pfade relativ zum Workspace unter Linux
-        String[] libPathsLinux = [
-                'program/svn'
-        ]
-        for (int i = 0; i < libPathsLinux.length; i++) {
-            String p = libPathsLinux[i]
-            println "adding lib path: $p"
-            env.LD_LIBRARY_PATH = env.WORKSPACE + fileSep() + p +
-                    (env.LD_LIBARY_PATH ? (pathSep() + env.LD_LIBRARY_PATH) : '')
-        }
-        println "LD_LIBRARY_PATH: ${env.LD_LIBRARY_PATH}"
+    if (BUILD_DATE == null) {
+        BUILD_DATE = new SimpleDateFormat('yyyy-MM-dd_HH-mm-ss', Locale.GERMAN).format(new Date())
+        println "BUILD_DATE: ${BUILD_DATE}"
     }
 
     // Einstellungen für den Testrunner machen
@@ -485,8 +422,15 @@ void nodeSetUp() {
         TESTRUNNER_APPLICATION = "application_jenkins_windows.xml"
         TESTRUNNER_CLUSTER = "local_components"
     }
+    
+}
 
-    println 'done node setup'
+def createEnvironment() {
+    if (isUnix()) {
+        environment=["JAVA_HOME=${env.WORKSPACE}/program/java7", "PATH=${env.PATH}:${env.WORKSPACE}/program/java7/bin:${env.WORKSPACE}/Workspace/extern/development/gradle/bin"]
+    } else {
+        environment=["PATH=${env.PATH};${env.WORKSPACE}/Workspace/extern/development/gradle/bin"]
+    }
 }
 
 /**
@@ -512,10 +456,27 @@ def run(String linux, String windows = null) {
  */
 def callGradle(int workers, String tasks) {
     dir('Workspace/rootProject') {
-        def max_workers = workers > 0 ? "--parallel --max-workers=${workers}" : ''
-        def jvm_args = '-server -Xmx1G -Xms1G -XX:ReservedCodeCacheSize=1G -XX:+DisableExplicitGC -XX:MaxPermSize=1G -XX:PermSize=256m -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:+CMSPermGenSweepingEnabled'
+        def args = []
+        args += '--no-daemon'
+        args += '-s'
+        args += "-PsetBuildDate=${BUILD_DATE}"
 
-        run "${env.GRADLE_BINARY} --no-daemon -s -PsetBuildDate=${env.BUILD_DATE} -Dorg.gradle.jvmargs=\"${jvm_args}\" ${max_workers} $tasks"
+        if (workers > 0) {
+            args += '--parallel'
+            args += '-max-workers=${workers}'
+        }
+
+        if (!params.get('withoutEcj')) {
+            args += '-Pjava.compile.ecj.enabled=true'
+        }
+
+        def jvm_args = '-server -Xmx1G -Xms1G -XX:ReservedCodeCacheSize=1G -XX:+DisableExplicitGC -XX:MaxPermSize=1G -XX:PermSize=256m -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:+CMSPermGenSweepingEnabled'
+        args += "-Dorg.gradle.jvmargs=\"${jvm_args}\""
+        args += tasks
+
+        def command = args.join(' ')
+
+        run("gradle ${command}", "gradle.bat ${command}")
     }
 }
 
@@ -613,7 +574,10 @@ def getTodos(StaticAnalysisType type) {
  */
 def getCompilerWarnings(StaticAnalysisType type) {
     println "Collecting " + type.name + "..."
-    step([$class: 'WarningsPublisher', consoleParsers: [[parserName: 'Java Compiler (javac)']]])
+    step([$class: 'WarningsPublisher', consoleParsers: [
+        [parserName: 'Java Compiler (javac)'],
+        [parserName: 'Java Compiler (Eclipse)']
+    ]])
     // Kein Archivieren, da die Konsole geparst wird.
 }
 
