@@ -658,7 +658,10 @@ def getTodos(StaticAnalysisType type) {
  */
 def getCompilerWarnings(StaticAnalysisType type) {
     println "Collecting " + type.name + "..."
-    step([$class: 'WarningsPublisher', consoleParsers: [[parserName: 'Java Compiler (javac)']]])
+    step([$class: 'WarningsPublisher', consoleParsers: [
+        [parserName: 'Java Compiler (javac)'],
+        [parserName: 'Java Compiler (Eclipse)']
+    ]])
     // Kein Archivieren, da die Konsole geparst wird.
 }
 
