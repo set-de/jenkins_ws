@@ -114,7 +114,7 @@ timestamps {
 
             } finally {
                 def res = effResult()
-                currentBuild.description += 'CheckCommit Phase: ${res}<br/>'
+                currentBuild.description += "CheckCommit Phase: ${res}<br/>"
                 notifications('CheckCommit Phase')
             }
 
