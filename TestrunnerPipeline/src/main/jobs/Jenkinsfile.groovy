@@ -631,6 +631,7 @@ def callGradle(int workers, String tasks) {
 		args += '--no-daemon'
 		args += '-s'
 		args += "-PsetBuildDate=${env.BUILD_DATE}"
+        args += '--profile'
 
 		if (workers > 0) {
 			args += '--parallel'
