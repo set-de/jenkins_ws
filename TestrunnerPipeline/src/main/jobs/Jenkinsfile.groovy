@@ -86,7 +86,6 @@ timestamps {
 
             try {
 
-
                 //hier wird mit Label gearbeitet, damit mehrere parallele Laeufe moeglich sind
                 milestone label: 'Beginn'
 
@@ -528,9 +527,9 @@ void globalSetUp() {
     finished = false
 
     // Build-Date für gesamte Pipeline festlegen
-    if (BUILD_DATE == null) {
-        BUILD_DATE = new SimpleDateFormat('yyyy-MM-dd_HH-mm-ss', Locale.GERMAN).format(new Date())
-        println "BUILD_DATE: ${BUILD_DATE}"
+    if (env.BUILD_DATE == null) {
+        env.BUILD_DATE = new SimpleDateFormat('yyyy-MM-dd_HH-mm-ss', Locale.GERMAN).format(new Date())
+        println "BUILD_DATE: ${env.BUILD_DATE}"
     }
 
     // Einstellungen für den Testrunner machen
@@ -544,11 +543,11 @@ void globalSetUp() {
 
 }
 
-def createEnvironment() {
+String createEnvironment() {
     if (isUnix()) {
-        environment=["JAVA_HOME=${env.WORKSPACE}/program/java7", "PATH=${env.PATH}:${env.WORKSPACE}/program/java7/bin:${env.WORKSPACE}/Workspace/extern/development/gradle/bin"]
+        return ["JAVA_HOME=${env.WORKSPACE}/program/java7", "PATH=${env.PATH}:${env.WORKSPACE}/program/java7/bin:${env.WORKSPACE}/Workspace/extern/development/gradle/bin"]
     } else {
-        environment=["PATH=${env.PATH};${env.WORKSPACE}/Workspace/extern/development/gradle/bin"]
+        return ["PATH=${env.PATH};${env.WORKSPACE}/Workspace/extern/development/gradle/bin"]
     }
 }
 
