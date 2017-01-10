@@ -184,11 +184,11 @@ def stage_checkout(Params params) {
     parallel(
             'SVN-Infos': {
                 // Nun die SVN-Informationen besorgen und als Umgebungsvariablen setzen
-                def infos = svninfo 'Workspace'
-                println "Retrieved svn info: $infos"
-                env.SVN_REVISION = infos['REVISION']
-                println "SVN_REVISION: ${env.SVN_REVISION}"
-                env.SVN_URL = infos['URL']
+                //def infos = svninfo 'Workspace'
+                //println "Retrieved svn info: $infos"
+                env.SVN_REVISION = 12345 //infos['REVISION']
+                //println "SVN_REVISION: ${env.SVN_REVISION}"
+                env.SVN_URL = "https://svn.intranet.set.de/svn/POSY-Redesign/" //infos['URL']
                 println "SVN_URL: ${env.SVN_URL}"
             }
     )
@@ -356,12 +356,60 @@ def stage_system_tests_manual_unit_remote(Params params) {
                 }
             },
             'Unit-Tests Remote': {
-                if (!params.isSet('withoutUnitTestsAix')) {
-                    echo 'UnitTests Testsysteme DUMMY...'
-                    sleep time: 60, unit: 'MINUTES'
-                } else {
-                    echo 'Skipping Unit-Tests'
+                def TESTRUNNER_JAR = "${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools/Testtools.jar"
+                def MAIN_CLASS = 'de.setsoftware.posy.testrunner.UnitMain'
+                def APPLICATION_NAME = 'application_localconsole.xml'
+                def REPORT_PATH = "${env.WORKSPACE}/Workspace/report/"
+                def INSTRUMENTED = 'true'
+                def ASSERTIONS = 'true'
+                def INSTALL_POSY = 'true'
+
+                echo 'Preparing for execution of remote Unit-Tests...'
+                echo "Path to Testrunner Jar: ${TESTRUNNER_JAR}"
+                echo "Path to Reports: ${REPORT_PATH}"
+
+                // Die gwt_servlet.jar ans Ende packen, damit unsere eigene Implementierung in den Tests verwendet wird.
+                dir("${env.WORKSPACE}/Workspace/Buildresults/POSY-UnitTestRunner") {
+                    echo 'Move gwt-servlet.jar to end of classpath...'
+                    run('mv jars\\gwt-servlet.jar jars\\z_gwt-servlet.jar', 'move /Y jars\\gwt-servlet.jar jars\\z_gwt-servlet.jar')
                 }
+
+                echo 'Executing remote Unit-Tests...'
+                parallel(
+                        'zos': {
+                            if (!params.isSet('withoutUnitTestsZos')) {
+                                dir("${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools") {
+                                    echo 'Executing remote Unit-Tests on z/OS...'
+                                    run("\"${env.JAVA_BINARY}\" -cp ${TESTRUNNER_JAR} ${MAIN_CLASS} zos ${APPLICATION_NAME} ${REPORT_PATH} ${INSTRUMENTED} ${ASSERTIONS} ${INSTALL_POSY}")
+                                }
+                                junit keepLongStdio: true, testResults: "Workspace/report/jUnit_zos_result.xml"
+                            } else {
+                                echo 'Skipping Unittests on z/OS...'
+                            }
+                        },
+                        'solaris': {
+                            if (!params.isSet('withoutUnitTestsSolaris')) {
+                                dir("${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools") {
+                                    echo 'Executing remote Unit-Tests on Solaris...'
+                                    run("\"${env.JAVA_BINARY}\" -cp ${TESTRUNNER_JAR} ${MAIN_CLASS} solaris ${APPLICATION_NAME} ${REPORT_PATH} ${INSTRUMENTED} ${ASSERTIONS} ${INSTALL_POSY}")
+                                }
+                                junit keepLongStdio: true, testResults: "Workspace/report/jUnit_solaris_result.xml"
+                            } else {
+                                echo 'Skipping Unittests on Solaris...'
+                            }
+                        },
+                        'aix': {
+                            if (!params.isSet('withoutUnitTestsAix')) {
+                                dir("${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools") {
+                                    echo 'Executing remote Unit-Tests on AIX...'
+                                    run("\"${env.JAVA_BINARY}\" -cp ${TESTRUNNER_JAR} ${MAIN_CLASS} aix ${APPLICATION_NAME} ${REPORT_PATH} ${INSTRUMENTED} ${ASSERTIONS} ${INSTALL_POSY}")
+                                }
+                                junit keepLongStdio: true, testResults: "Workspace/report/jUnit_aix_result.xml"
+                            } else {
+                                echo 'Skipping Unittests on AIX...'
+                            }
+                        }
+                )
             }
     )
 }
@@ -449,7 +497,7 @@ void globalSetUp() {
         TESTRUNNER_APPLICATION = "application_jenkins_windows.xml"
         TESTRUNNER_CLUSTER = "local_components"
     }
-    
+
 }
 
 def createEnvironment() {
@@ -657,7 +705,7 @@ def mailToComitters(String info, String res) {
 }
 
 /**
- * Ergebnisse der Steps zur Ausgabe zusammenfassen.
+ * Ergebnisse der Steps zur Ausgabe zusammenfassen
  */
 def joinResults() {
     def res = ''
