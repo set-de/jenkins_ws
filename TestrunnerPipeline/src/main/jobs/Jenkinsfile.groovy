@@ -1,5 +1,32 @@
 /**
  * ThePipeline for POSY.
+ *
+ * Folgende Voraussetzungen müssen erfüllt sein, damit die Pipeline auf einem Jenkins ausgeführt werden kann:
+ *
+ * <b>Benötigte Plugins</b>
+ *
+ * <li>lockable-resources</li>
+ * <li>subversion:SET-Version</li>
+ *
+ * <li>testrunner:SET-Version</li>
+ * <li>junit</li>
+ * <li>jacoco:SET-Version</li>
+ *
+ * <li>warnings</li>
+ * <li>tasks</li>
+ * <li>findbugs</li>
+ * <li>checkstyle</li>
+ * <li>violations:0.8</li>
+ *
+ * <li>email-ext</li>
+ * <li>hipchat</li>
+ *
+ * <b>Benötigte Ressourcen</b>
+ * <li><JOBNAME>_CheckCommit-Label</li>
+ * <li><JOBNAME>_Systemtests-Local-Lock</li>
+ * <li><JOBNAME>_Systemtests-Remote-Lock</li>
+ * <li><JOBNAME>_Deploy-Lock</li>
+ *
  */
 
 import java.text.SimpleDateFormat
