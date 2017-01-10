@@ -841,7 +841,8 @@ def extendedStage(String name, Closure closure) {
     } catch (StopBuildException e) {
         throw e
     } catch (Exception e) {
-        currentBuild.result = 'FAILURE'
+        if (currentBuild.result != 'ABORTED')
+            currentBuild.result = 'FAILURE'
         throw e
     } finally {
         results.add([name, effResult()])
