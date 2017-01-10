@@ -537,8 +537,8 @@ void globalSetUp() {
         TESTRUNNER_APPLICATION = "application_jenkins.xml"
         TESTRUNNER_CLUSTER = "local_linux"
     } else {
-        JAVA_HOME="${env.WORKSPACE}/program/java7"
-        JAVA_BINARY="${env.JAVA_HOME}/bin/java"
+        JAVA_HOME='C:\\Program Files\\Java\\jdk1.7.0_79'
+        JAVA_BINARY="${env.JAVA_HOME}\\bin\\java.exe"
         TESTRUNNER_APPLICATION = "application_jenkins_windows.xml"
         TESTRUNNER_CLUSTER = "local_components"
     }
