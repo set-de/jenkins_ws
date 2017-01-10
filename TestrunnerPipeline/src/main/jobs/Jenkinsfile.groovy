@@ -45,6 +45,11 @@ if (params == null) {
 results = []
 
 /**
+ * Pipeline ordentlich beendet?
+ */
+finished = false
+
+/**
  * Die eigentliche Pipeline.
  *
  * Zur besseren Benennung in der "Pipeline-Steps"-Ansicht werden auch einfache Tasks in ein <code>parallel</code>
@@ -116,10 +121,18 @@ node(params.get('node')) {
                 }
 
             }
+            
+            finished = true
 
         } catch (StopBuildException e) {
             // swallow Exception here
         } finally {
+            if (!finished) {
+                if (currentBuild.result != 'ABORTED') {
+                    currentBuild.result = 'FAILURE'
+                }
+            }    
+            results.add(['Global'], effResult()])
             notifications('Full Pipeline')
         }
 
