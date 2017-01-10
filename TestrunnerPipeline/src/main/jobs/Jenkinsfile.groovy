@@ -650,7 +650,7 @@ enum StaticAnalysisType {
  * E-Mail an Comitter versenden.
  */
 def mailToComitters(String info, String res) {
-    emailext to: 'jenkins@set.de', // to darf nicht leer oder null sein
+    emailext to: 'as@set.de', // to darf nicht leer oder null sein
             recipientProviders: [[$class: 'CulpritsRecipientProvider'], [$class: 'DevelopersRecipientProvider']],
             subject: "'${env.JOB_NAME} [${env.BUILD_NUMBER}]' - ${info} ${currentBuild.result == null ? 'SUCCESS' : currentBuild.result}",
             body: "Rev ${env.SVN_REVISION} - Siehe ${env.BUILD_URL}<br/>${res}"
