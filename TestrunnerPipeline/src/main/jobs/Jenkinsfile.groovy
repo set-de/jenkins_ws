@@ -81,7 +81,7 @@ globalSetUp()
 /**
  * Informationen in Beschreibung ausgeben.
  */ 
-currentBuild.description = '';
+currentBuild.description = ''
   
 timestamps {
 
