@@ -113,8 +113,9 @@ timestamps {
                 }
 
             } finally {
-                currentBuild.description += 'CheckCommit-Phase beendet<br/>'
-                notifications('CheckCommit Phases')
+                def res = effResult()
+                currentBuild.description += 'CheckCommit Phase: ${res}<br/>'
+                notifications('CheckCommit Phase')
             }
 
             lock(inversePrecedence: true, quantity: 1, resource: env.JOB_BASE_NAME + '_Systemtests-Local-Lock') {
@@ -313,7 +314,7 @@ def stage_system_tests_manual_unit_remote(Params params) {
                           assertionsEnabled    : true,
                           clusters             : "${TESTRUNNER_CLUSTER}",
                           instrumented         : true,
-                          javaCommand          : "${env.JAVA_BINARY}",
+                          javaCommand          : "${JAVA_BINARY}",
                           reportPath           : "${env.WORKSPACE}/Workspace/report/",
                           statusServerPorts    : '1234',
                           testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle",
@@ -333,7 +334,7 @@ def stage_system_tests_manual_unit_remote(Params params) {
                           assertionsEnabled    : true,
                           clusters             : "${TESTRUNNER_CLUSTER}",
                           instrumented         : true,
-                          javaCommand          : "${env.JAVA_BINARY}",
+                          javaCommand          : "${JAVA_BINARY}",
                           reportPath           : "${env.WORKSPACE}/Workspace/report/",
                           statusServerPorts    : '1235',
                           testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle-Plugins",
@@ -353,7 +354,7 @@ def stage_system_tests_manual_unit_remote(Params params) {
                           assertionsEnabled    : true,
                           clusters             : "${TESTRUNNER_CLUSTER}",
                           instrumented         : true,
-                          javaCommand          : "${env.JAVA_BINARY}",
+                          javaCommand          : "${JAVA_BINARY}",
                           reportPath           : "${env.WORKSPACE}/Workspace/report/",
                           statusServerPorts    : '1236',
                           testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle-Replikation",
@@ -391,7 +392,7 @@ def stage_system_tests_manual_unit_remote(Params params) {
                             if (!params.isSet('withoutUnitTestsZos')) {
                                 dir("${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools") {
                                     echo 'Executing remote Unit-Tests on z/OS...'
-                                    run("\"${env.JAVA_BINARY}\" -cp ${TESTRUNNER_JAR} ${MAIN_CLASS} zos ${APPLICATION_NAME} ${REPORT_PATH} ${INSTRUMENTED} ${ASSERTIONS} ${INSTALL_POSY}")
+                                    run("\"${JAVA_BINARY}\" -cp ${TESTRUNNER_JAR} ${MAIN_CLASS} zos ${APPLICATION_NAME} ${REPORT_PATH} ${INSTRUMENTED} ${ASSERTIONS} ${INSTALL_POSY}")
                                 }
                                 junit keepLongStdio: true, testResults: "Workspace/report/jUnit_zos_result.xml"
                             } else {
@@ -402,7 +403,7 @@ def stage_system_tests_manual_unit_remote(Params params) {
                             if (!params.isSet('withoutUnitTestsSolaris')) {
                                 dir("${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools") {
                                     echo 'Executing remote Unit-Tests on Solaris...'
-                                    run("\"${env.JAVA_BINARY}\" -cp ${TESTRUNNER_JAR} ${MAIN_CLASS} solaris ${APPLICATION_NAME} ${REPORT_PATH} ${INSTRUMENTED} ${ASSERTIONS} ${INSTALL_POSY}")
+                                    run("\"${JAVA_BINARY}\" -cp ${TESTRUNNER_JAR} ${MAIN_CLASS} solaris ${APPLICATION_NAME} ${REPORT_PATH} ${INSTRUMENTED} ${ASSERTIONS} ${INSTALL_POSY}")
                                 }
                                 junit keepLongStdio: true, testResults: "Workspace/report/jUnit_solaris_result.xml"
                             } else {
@@ -413,7 +414,7 @@ def stage_system_tests_manual_unit_remote(Params params) {
                             if (!params.isSet('withoutUnitTestsAix')) {
                                 dir("${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools") {
                                     echo 'Executing remote Unit-Tests on AIX...'
-                                    run("\"${env.JAVA_BINARY}\" -cp ${TESTRUNNER_JAR} ${MAIN_CLASS} aix ${APPLICATION_NAME} ${REPORT_PATH} ${INSTRUMENTED} ${ASSERTIONS} ${INSTALL_POSY}")
+                                    run("\"${JAVA_BINARY}\" -cp ${TESTRUNNER_JAR} ${MAIN_CLASS} aix ${APPLICATION_NAME} ${REPORT_PATH} ${INSTRUMENTED} ${ASSERTIONS} ${INSTALL_POSY}")
                                 }
                                 junit keepLongStdio: true, testResults: "Workspace/report/jUnit_aix_result.xml"
                             } else {
@@ -437,7 +438,7 @@ def stage_system_tests_remote(Params params) {
                         assertionsEnabled    : true,
                         clusters             : 'aix',
                         instrumented         : true,
-                        javaCommand          : "java",
+                        javaCommand          : "${JAVA_BINARY}",
                         reportPath           : "${env.WORKSPACE}/Workspace/report/",
                         statusServerPorts    : '1236',
                         testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle-Replikation",
@@ -457,7 +458,7 @@ def stage_system_tests_remote(Params params) {
                         assertionsEnabled    : true,
                         clusters             : 'solaris',
                         instrumented         : true,
-                        javaCommand          : "java",
+                        javaCommand          : "${JAVA_BINARY}",
                         reportPath           : "${env.WORKSPACE}/Workspace/report/",
                         statusServerPorts    : '1236',
                         testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle-Replikation",
@@ -477,7 +478,7 @@ def stage_system_tests_remote(Params params) {
                         assertionsEnabled    : true,
                         clusters             : 'zos',
                         instrumented         : true,
-                        javaCommand          : "java",
+                        javaCommand          : "${JAVA_BINARY}",
                         reportPath           : "${env.WORKSPACE}/Workspace/report/",
                         statusServerPorts    : '1236',
                         testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle-Replikation",
@@ -505,7 +506,7 @@ def stage_getTestCoverage(Params params) {
                       exclusionPattern          : '.*/wsdl/.*,.*/bixjab/.*,.*/xml/.*,.*/gen/.*,de/setsoftware/posy/plugins/customerPlugins/VsTestPlugin.*,.*Messages,.*Messages_DE,.*Messages_EN',
                       execPath                  : 'Workspace/report/coverage/',
                       inclusionPattern          : 'de/set/.*,de/setsoftware/.*',
-                      javaCommand               : "${env.JAVA_BINARY}",
+                      javaCommand               : "${JAVA_BINARY}",
                       projectExcludes           : 'GuiTestrunner,Testrunner,UnitTestRunner,POSY-Config-GUI,POSY-Dialog-Basisdaten,POSY-DispatchManagement-GUI,POSY-GUI-Lib,POSY-Viewer-GUI,POSY-PM-StatusView,POSY-PM-Workplace-Plugins,POSY-Workflow-GUI,POSY-Workplace-GUI,POSY-Workplace-Plugins,SET-GUI-Lib,SET-Web-GUI-Lib,POSY-Workstation,SET-CodeAnalysis,POSY-StorageTest,Infrastructure,SET-Tools,POSY-Tools,POSY-Plugins-Gen,POSY-StorageInterface-Gen,POSY-LongTermStorage-Interface-Gen,Gui-Performance-Tests,POSY-GUI-Test-Lib,SET-AspectJ',
                       reportGeneratorPath       : 'program/jacocoReportGenerator/JacocoReportGenerator.jar',
                       reportTargetPath          : 'Workspace/report/coverageReport/',
@@ -592,12 +593,12 @@ void globalSetUp() {
     // Einstellungen für den Testrunner machen
     if (isUnix()) {
         JAVA_HOME="${env.WORKSPACE}/program/java7"
-        JAVA_BINARY="${env.JAVA_HOME}/bin/java"
+        JAVA_BINARY="${JAVA_HOME}/bin/java"
         TESTRUNNER_APPLICATION = "application_jenkins.xml"
         TESTRUNNER_CLUSTER = "local_linux"
     } else {
         JAVA_HOME='C:\\Program Files\\Java\\jdk1.7.0_79'
-        JAVA_BINARY="${env.JAVA_HOME}\\bin\\java.exe"
+        JAVA_BINARY="${JAVA_HOME}\\bin\\java.exe"
         TESTRUNNER_APPLICATION = "application_jenkins_windows.xml"
         TESTRUNNER_CLUSTER = "local_components"
     }
@@ -1011,7 +1012,7 @@ class Params implements Serializable {
     }
 }
 
-/**d
+/**
  * Exception mit Sonderbehandlung, die benutzt wird, um die Pipeline bei UNSTABLE-Results zu beenden.
  */
 class StopBuildException extends Exception implements Serializable {
