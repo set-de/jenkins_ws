@@ -78,6 +78,11 @@ globalSetUp()
  *
  */
 
+/**
+ * Informationen in Beschreibung ausgeben.
+ */ 
+currentBuild.description = '';
+  
 timestamps {
 
     withEnv(createEnvironment()) {
@@ -108,6 +113,7 @@ timestamps {
                 }
 
             } finally {
+                currentBuild.description += 'CheckCommit-Phase beendet<br/>'
                 notifications('CheckCommit Phases')
             }
 
@@ -152,9 +158,11 @@ timestamps {
         } finally {
             results.add(['Global', effResult()])
             if (!finished) {
+                currentBuild.description += "Pipeline Ende nicht erreicht.<br/>"
                 results.add(['Pipeline', 'NOT_FINISHED'])
             }    
             notifications('Full Pipeline')
+            currentBuild.description += "Pipeline beendet.<br/>"
         }
     }
 }
@@ -837,7 +845,7 @@ def extendedStage(String name, Closure closure) {
     } finally {
         results.add([name, effResult()])
     }
-    continueCheck()
+    continueCheck(name)
 }
 
 /**
@@ -1017,10 +1025,11 @@ class StopBuildException extends Exception implements Serializable {
 /**
  * Prüfung, ob die Pipeline weiterlaufen soll.
  */
-def continueCheck() {
-    echo "Checking Build-Result: " + currentBuild.result
+def continueCheck(String lastStage) {
+    echo "Checking Build-Result after Stage '${lastStage}': " + currentBuild.result
     if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
         echo "stopping Pipeline..."
+        currentBuild.description += "Pipeline gestoppt nach '${lastStage}'<br/>"
         throw new StopBuildException('Test')
     }
 }
