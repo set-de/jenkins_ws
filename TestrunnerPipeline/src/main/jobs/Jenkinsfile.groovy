@@ -132,7 +132,7 @@ node(params.get('node')) {
                     currentBuild.result = 'FAILURE'
                 }
             }    
-            results.add(['Global'], effResult()])
+            results.add(['Global', effResult()])
             notifications('Full Pipeline')
         }
 
