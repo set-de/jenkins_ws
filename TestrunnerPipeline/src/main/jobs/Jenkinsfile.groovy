@@ -150,12 +150,10 @@ timestamps {
         } catch (StopBuildException e) {
             // swallow Exception here
         } finally {
-            if (!finished) {
-                if (currentBuild.result != 'ABORTED') {
-                    currentBuild.result = 'FAILURE'
-                }
-            }    
             results.add(['Global', effResult()])
+            if (!finished) {
+                results.add(['Pipeline', 'NOT_FINISHED'])
+            }    
             notifications('Full Pipeline')
         }
     }
@@ -307,7 +305,7 @@ def stage_system_tests_manual_unit_remote(Params params) {
                           assertionsEnabled    : true,
                           clusters             : "${TESTRUNNER_CLUSTER}",
                           instrumented         : true,
-                          javaCommand          : "java",
+                          javaCommand          : "${env.JAVA_BINARY}",
                           reportPath           : "${env.WORKSPACE}/Workspace/report/",
                           statusServerPorts    : '1234',
                           testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle",
@@ -327,7 +325,7 @@ def stage_system_tests_manual_unit_remote(Params params) {
                           assertionsEnabled    : true,
                           clusters             : "${TESTRUNNER_CLUSTER}",
                           instrumented         : true,
-                          javaCommand          : "java",
+                          javaCommand          : "${env.JAVA_BINARY}",
                           reportPath           : "${env.WORKSPACE}/Workspace/report/",
                           statusServerPorts    : '1235',
                           testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle-Plugins",
@@ -347,7 +345,7 @@ def stage_system_tests_manual_unit_remote(Params params) {
                           assertionsEnabled    : true,
                           clusters             : "${TESTRUNNER_CLUSTER}",
                           instrumented         : true,
-                          javaCommand          : "java",
+                          javaCommand          : "${env.JAVA_BINARY}",
                           reportPath           : "${env.WORKSPACE}/Workspace/report/",
                           statusServerPorts    : '1236',
                           testSuitePath        : "${env.WORKSPACE}/Workspace/Systemtestfaelle-Replikation",
@@ -534,9 +532,13 @@ void globalSetUp() {
 
     // Einstellungen für den Testrunner machen
     if (isUnix()) {
+        JAVA_HOME="${env.WORKSPACE}/program/java7"
+        JAVA_BINARY="${env.JAVA_HOME}/bin/java"
         TESTRUNNER_APPLICATION = "application_jenkins.xml"
         TESTRUNNER_CLUSTER = "local_linux"
     } else {
+        JAVA_HOME="${env.WORKSPACE}/program/java7"
+        JAVA_BINARY="${env.JAVA_HOME}/bin/java"
         TESTRUNNER_APPLICATION = "application_jenkins_windows.xml"
         TESTRUNNER_CLUSTER = "local_components"
     }
