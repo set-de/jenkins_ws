@@ -390,33 +390,39 @@ def stage_system_tests_manual_unit_remote() {
                 parallel(
                         'UnitTests ZOS': {
                             if (!params.isSet('withoutUnitTestsZos')) {
-                                dir("${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools") {
-                                    echo 'Executing remote Unit-Tests on z/OS...'
-                                    run("\"${JAVA_BINARY}\" -cp ${TESTRUNNER_JAR} ${MAIN_CLASS} zos ${APPLICATION_NAME} ${REPORT_PATH} ${INSTRUMENTED} ${ASSERTIONS} ${INSTALL_POSY}")
+                                withEnv(['TESTRUNNER_USER=HB']) {
+                                    dir("${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools") {
+                                        echo 'Executing remote Unit-Tests on z/OS...'
+                                        run("\"${JAVA_BINARY}\" -cp ${TESTRUNNER_JAR} ${MAIN_CLASS} zos ${APPLICATION_NAME} ${REPORT_PATH} ${INSTRUMENTED} ${ASSERTIONS} ${INSTALL_POSY}")
+                                    }
+                                    junit keepLongStdio: true, testResults: "Workspace/report/jUnit_zos_result.xml"
                                 }
-                                junit keepLongStdio: true, testResults: "Workspace/report/jUnit_zos_result.xml"
                             } else {
                                 echo 'Skipping Unittests on z/OS...'
                             }
                         },
                         'UnitTests Solaris': {
                             if (!params.isSet('withoutUnitTestsSolaris')) {
-                                dir("${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools") {
-                                    echo 'Executing remote Unit-Tests on Solaris...'
-                                    run("\"${JAVA_BINARY}\" -cp ${TESTRUNNER_JAR} ${MAIN_CLASS} solaris ${APPLICATION_NAME} ${REPORT_PATH} ${INSTRUMENTED} ${ASSERTIONS} ${INSTALL_POSY}")
+                                withEnv(['TESTRUNNER_USER=HA']) {
+                                    dir("${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools") {
+                                        echo 'Executing remote Unit-Tests on Solaris...'
+                                        run("\"${JAVA_BINARY}\" -cp ${TESTRUNNER_JAR} ${MAIN_CLASS} solaris ${APPLICATION_NAME} ${REPORT_PATH} ${INSTRUMENTED} ${ASSERTIONS} ${INSTALL_POSY}")
+                                    }
+                                    junit keepLongStdio: true, testResults: "Workspace/report/jUnit_solaris_result.xml"
                                 }
-                                junit keepLongStdio: true, testResults: "Workspace/report/jUnit_solaris_result.xml"
                             } else {
                                 echo 'Skipping Unittests on Solaris...'
                             }
                         },
                         'UnitTests AIX': {
                             if (!params.isSet('withoutUnitTestsAix')) {
-                                dir("${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools") {
-                                    echo 'Executing remote Unit-Tests on AIX...'
-                                    run("\"${JAVA_BINARY}\" -cp ${TESTRUNNER_JAR} ${MAIN_CLASS} aix ${APPLICATION_NAME} ${REPORT_PATH} ${INSTRUMENTED} ${ASSERTIONS} ${INSTALL_POSY}")
+                                withEnv(['TESTRUNNER_USER=H8']) {
+                                    dir("${env.WORKSPACE}/Workspace/Buildresults/POSY-Testtools") {
+                                        echo 'Executing remote Unit-Tests on AIX...'
+                                        run("\"${JAVA_BINARY}\" -cp ${TESTRUNNER_JAR} ${MAIN_CLASS} aix ${APPLICATION_NAME} ${REPORT_PATH} ${INSTRUMENTED} ${ASSERTIONS} ${INSTALL_POSY}")
+                                    }
+                                    junit keepLongStdio: true, testResults: "Workspace/report/jUnit_aix_result.xml"
                                 }
-                                junit keepLongStdio: true, testResults: "Workspace/report/jUnit_aix_result.xml"
                             } else {
                                 echo 'Skipping Unittests on AIX...'
                             }
